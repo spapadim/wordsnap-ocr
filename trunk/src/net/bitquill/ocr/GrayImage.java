@@ -1,12 +1,11 @@
 package net.bitquill.ocr;
 
-import java.io.IOException;
-
 import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.graphics.Bitmap.Config;
 import android.util.Log;
 
-public class PreviewImage {
+public class GrayImage {
     
     private static final String TAG = "PreviewImage";
     
@@ -23,13 +22,13 @@ public class PreviewImage {
     private int mHeight;
     
     // TODO - decide method scope
-    protected PreviewImage (int width, int height) {
+    protected GrayImage (int width, int height) {
         mWidth = width;
         mHeight = height;
         mData = new byte[width * height];
     }
 
-    public PreviewImage (byte[] data, int width, int height) {
+    public GrayImage (byte[] data, int width, int height) {
         if (data.length < width * height) {
             throw new IllegalArgumentException("Image data array is too short");
         }
@@ -42,7 +41,7 @@ public class PreviewImage {
      * Copy constructor.
      * @param other  PreviewImage to copy from.
      */
-    public PreviewImage (PreviewImage other) {
+    public GrayImage (GrayImage other) {
         int width = other.mWidth;
         int height = other.mHeight;
         mWidth = width;
@@ -60,11 +59,11 @@ public class PreviewImage {
     }
     
     public final int getPixel (int i, int j) {
-        return PreviewImage.getPixel(mData, mWidth, i, j);
+        return GrayImage.getPixel(mData, mWidth, i, j);
     }
     
     public final void setPixel (int i, int j, byte value) {
-        PreviewImage.setPixel(mData, mWidth, i, j, value);
+        GrayImage.setPixel(mData, mWidth, i, j, value);
     }
     
     public final void getRow (int i, byte[] values) {
@@ -78,22 +77,22 @@ public class PreviewImage {
     }
     
     public int mean () {
-        return PreviewImage.nativeMean(mData, mWidth, mHeight);
+        return GrayImage.nativeMean(mData, mWidth, mHeight);
     }
     
-    public PreviewImage meanFilter (int radius, PreviewImage dest) {
+    public GrayImage meanFilter (int radius, GrayImage dest) {
         if (dest.mWidth != mWidth || dest.mHeight != mHeight) {
             throw new IllegalArgumentException("Destination image size must match");
         }
-        PreviewImage.nativeMeanFilter(mData, dest.mData, mWidth, mHeight, radius);
+        GrayImage.nativeMeanFilter(mData, dest.mData, mWidth, mHeight, radius);
         return dest;
     }
     
-    public PreviewImage meanFilter (int radius) {
-        return meanFilter(radius, new PreviewImage(mWidth, mHeight));
+    public GrayImage meanFilter (int radius) {
+        return meanFilter(radius, new GrayImage(mWidth, mHeight));
     }
     
-    public PreviewImage adaptiveThreshold (byte hi, byte lo, int offset, PreviewImage thresh, PreviewImage dest) {
+    public GrayImage adaptiveThreshold (byte hi, byte lo, int offset, GrayImage thresh, GrayImage dest) {
         int width = mWidth;
         int height = mHeight;
         if (thresh.mWidth != width || thresh.mHeight != height) {
@@ -102,7 +101,7 @@ public class PreviewImage {
         if (dest.mWidth != width || dest.mHeight != height) {
             throw new IllegalArgumentException("Destination image size must match");            
         }
-        PreviewImage.nativeAdaptiveThreshold(mData, thresh.mData, dest.mData, width, height, hi, lo, offset);
+        GrayImage.nativeAdaptiveThreshold(mData, thresh.mData, dest.mData, width, height, hi, lo, offset);
         return dest;
     }
     
@@ -119,6 +118,14 @@ public class PreviewImage {
     
     public Bitmap asBitmap (int left, int top, int width, int height) {
         return asBitmap(left, top, width, height, new int[width*height]);
+    }
+    
+    public Bitmap asBitmap (Rect roi, int[] buf) {
+        return asBitmap(roi.left, roi.top, roi.width(), roi.height(), buf);
+    }
+    
+    public Bitmap asBitmap (Rect roi) {
+        return asBitmap(roi.left, roi.top, roi.width(), roi.height());
     }
     
     public Bitmap asBitmap (int[] buf) {
