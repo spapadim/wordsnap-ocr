@@ -1,5 +1,5 @@
 #include <jni.h>
-#include "net_bitquill_ocr_PreviewImage.h"
+#include "net_bitquill_ocr_GrayImage.h"
 
 static void throwException (JNIEnv *env, const char* ex, const char* msg)
 {
@@ -99,7 +99,7 @@ static void avgRow (const int* sum, int row,
     }
 }
 
-JNIEXPORT void JNICALL Java_net_bitquill_ocr_PreviewImage_nativeMeanFilter
+JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeMeanFilter
   (JNIEnv *env, jclass cls, jbyteArray jin, jbyteArray jout,
           jint width, jint height, jint radius)
 {
@@ -140,7 +140,7 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_PreviewImage_nativeMeanFilter
     env->ReleaseByteArrayElements(jout, (jbyte *)out, 0);
 }
 
-JNIEXPORT jint JNICALL Java_net_bitquill_ocr_PreviewImage_nativeMean
+JNIEXPORT jint JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
   (JNIEnv *env, jclass cls, jbyteArray jin, jint width, jint height)
 {
     // Check parameters
@@ -167,7 +167,7 @@ JNIEXPORT jint JNICALL Java_net_bitquill_ocr_PreviewImage_nativeMean
     return total / (width * height);
 }
 
-JNIEXPORT void JNICALL Java_net_bitquill_ocr_PreviewImage_nativeGrayToARGB
+JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeGrayToARGB
   (JNIEnv *env, jclass cls,
           jbyteArray jin, jint imgWidth, jint imgHeight,
           jintArray jout, jint left, jint top, jint width, jint height)
@@ -205,7 +205,7 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_PreviewImage_nativeGrayToARGB
     env->ReleaseIntArrayElements(jout, (jint *)out, 0);
 }
 
-JNIEXPORT void JNICALL Java_net_bitquill_ocr_PreviewImage_nativeAdaptiveThreshold
+JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeAdaptiveThreshold
   (JNIEnv *env, jclass cls,
     jbyteArray jin, jbyteArray jthresh, jbyteArray jout,
     jint width, jint height, jbyte hi, jbyte lo, jint offset)

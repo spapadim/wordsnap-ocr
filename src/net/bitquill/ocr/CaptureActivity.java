@@ -181,11 +181,11 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
                     @Override
                     public void run() {
                         // TODO Auto-generated method stub
-                        PreviewImage img = new PreviewImage(yuv, mPreviewWidth, mPreviewHeight);
+                        GrayImage img = new GrayImage(yuv, mPreviewWidth, mPreviewHeight);
                         // Temporary timing test
                         Log.i(TAG, "Start mean filtering");
                         long startTime = System.currentTimeMillis();
-                        PreviewImage meanImg = img.meanFilter(10);
+                        GrayImage meanImg = img.meanFilter(10);
                         Log.i(TAG, "meanFilter time: " + (System.currentTimeMillis() - startTime));
 
                         // Dump raw input and output data
