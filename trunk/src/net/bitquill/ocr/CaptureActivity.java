@@ -1,6 +1,7 @@
 package net.bitquill.ocr;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
 import android.hardware.Camera;
 import android.hardware.Camera.Size;
 import android.os.Bundle;
@@ -180,17 +181,12 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
                     @Override
                     public void run() {
                         // TODO Auto-generated method stub
-
+                        PreviewImage img = new PreviewImage(yuv, mPreviewWidth, mPreviewHeight);
                         // Temporary timing test
-                        byte[] out = new byte[mPreviewWidth*mPreviewHeight];
                         Log.i(TAG, "Start mean filtering");
                         long startTime = System.currentTimeMillis();
-                        //Decoder.meanFilter1(yuv, out, mPreviewWidth, mPreviewHeight, 10);
-                        //Log.i(TAG, "meanFilter1 time: " + (System.currentTimeMillis() - startTime));
-                        //Decoder.nativeNaiveMeanFilter(yuv, out, mPreviewWidth, mPreviewHeight, 10);
-                        //Log.i(TAG, "nativeNaiveMeanFilter time: " + (System.currentTimeMillis() - startTime));
-                        Decoder.nativeMeanFilter1(yuv, out, mPreviewWidth, mPreviewHeight, 10);
-                        Log.i(TAG, "nativeMeanFilter1 time: " + (System.currentTimeMillis() - startTime));
+                        PreviewImage meanImg = img.meanFilter(10);
+                        Log.i(TAG, "meanFilter time: " + (System.currentTimeMillis() - startTime));
 
                         // Dump raw input and output data
                         try {
@@ -200,10 +196,23 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
                             os.close();
                             // Ouput
                             os = new FileOutputStream("/sdcard/out_dump" + dumpCount + ".gray");
-                            os.write(out);
+                            os.write(meanImg.getData());
                             os.close();
                             ++dumpCount;
                         } catch (IOException e) { }
+                        
+                        Log.i(TAG, "Start mean");
+                        startTime = System.currentTimeMillis();
+                        int mean = img.mean();
+                        Log.i(TAG, "mean time: " + (System.currentTimeMillis() - startTime) + " (value " + mean + ")");
+                        
+                        Log.i(TAG, "Start ARGB conversion");
+                        startTime = System.currentTimeMillis();
+                        int[] tmp = new int[mPreviewWidth * mPreviewHeight];
+                        Log.i(TAG, "Allocated buffer in " + (System.currentTimeMillis() - startTime));
+                        startTime = System.currentTimeMillis();
+                        Bitmap b = meanImg.asBitmap();
+                        Log.i(TAG, "Conversion time: " + (System.currentTimeMillis() - startTime));
                         
                         mPreviewCaptureInProgress = false; // FIXME - move back up
                     }
