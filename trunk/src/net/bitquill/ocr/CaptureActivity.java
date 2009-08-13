@@ -200,11 +200,11 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
 
                         Log.i(TAG, "Start mean");
                         startTime = System.currentTimeMillis();
-                        int totalMean = img.mean();
+                        float totalMean = img.mean();
                         Log.i(TAG, "mean time: " + (System.currentTimeMillis() - startTime) + " (value " + totalMean + ")");
 
                         try {
-                            // Dump mean filter ouput
+                            // Dump mean filter output
                             FileOutputStream os = new FileOutputStream("/sdcard/mean_dump" + dumpCount + ".gray");
                             os.write(meanImg.getData());
                             os.close();
@@ -212,12 +212,12 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
 
                         Log.i(TAG, "Start thresholding");
                         startTime = System.currentTimeMillis();
-                        int threshOffset = (int)(0.15 * totalMean);
+                        int threshOffset = (int)(0.1 * totalMean);
                         meanImg = img.adaptiveThreshold((byte)255, (byte)0, threshOffset, meanImg, meanImg);
                         Log.i(TAG, "thresholding time: " + (System.currentTimeMillis() - startTime));
                         
                         try {
-                            // Dump mean filter ouput
+                            // Dump thresholded output
                             FileOutputStream os = new FileOutputStream("/sdcard/bin_dump" + dumpCount + ".gray");
                             os.write(meanImg.getData());
                             os.close();
