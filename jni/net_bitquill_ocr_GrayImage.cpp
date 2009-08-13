@@ -1,4 +1,5 @@
 #include <jni.h>
+#include "string.h"
 #include "net_bitquill_ocr_GrayImage.h"
 
 static void throwException (JNIEnv *env, const char* ex, const char* msg)
@@ -120,11 +121,13 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeMeanFilter
         throwException(env, "java/lang/IllegalArgumentException", "Output array too short");
         return;
     }
+    // Allocate temporary buffer
     int* sum = new int[width];
     if (sum == 0) {
         throwException(env, "java/lang/OutOfMemoryError", "Failed to allocate sums buffer");
         return;
     }
+    memset(sum, 0, width * sizeof(int));  // XXX is this the C++ way?
 
     unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
     unsigned char *out = (unsigned char *) env->GetByteArrayElements(jout, 0);

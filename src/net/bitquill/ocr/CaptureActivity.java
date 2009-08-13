@@ -181,39 +181,58 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
                     @Override
                     public void run() {
                         // TODO Auto-generated method stub
+
+                        try {
+                            // Dump raw camera input
+                            FileOutputStream os = new FileOutputStream("/sdcard/in_dump" + dumpCount + ".yuv");
+                            os.write(yuv);
+                            os.close();
+                        } catch (IOException e) { }
+
+
                         GrayImage img = new GrayImage(yuv, mPreviewWidth, mPreviewHeight);
+
                         // Temporary timing test
                         Log.i(TAG, "Start mean filtering");
                         long startTime = System.currentTimeMillis();
                         GrayImage meanImg = img.meanFilter(10);
                         Log.i(TAG, "meanFilter time: " + (System.currentTimeMillis() - startTime));
 
-                        // Dump raw input and output data
-                        try {
-                            // Raw input
-                            FileOutputStream os = new FileOutputStream("/sdcard/in_dump" + dumpCount + ".yuv");
-                            os.write(yuv);
-                            os.close();
-                            // Ouput
-                            os = new FileOutputStream("/sdcard/out_dump" + dumpCount + ".gray");
-                            os.write(meanImg.getData());
-                            os.close();
-                            ++dumpCount;
-                        } catch (IOException e) { }
-                        
                         Log.i(TAG, "Start mean");
                         startTime = System.currentTimeMillis();
-                        int mean = img.mean();
-                        Log.i(TAG, "mean time: " + (System.currentTimeMillis() - startTime) + " (value " + mean + ")");
-                        
-                        Log.i(TAG, "Start ARGB conversion");
+                        int totalMean = img.mean();
+                        Log.i(TAG, "mean time: " + (System.currentTimeMillis() - startTime) + " (value " + totalMean + ")");
+
+                        try {
+                            // Dump mean filter ouput
+                            FileOutputStream os = new FileOutputStream("/sdcard/mean_dump" + dumpCount + ".gray");
+                            os.write(meanImg.getData());
+                            os.close();
+                        } catch (IOException e) { }
+
+                        Log.i(TAG, "Start thresholding");
                         startTime = System.currentTimeMillis();
-                        int[] tmp = new int[mPreviewWidth * mPreviewHeight];
-                        Log.i(TAG, "Allocated buffer in " + (System.currentTimeMillis() - startTime));
-                        startTime = System.currentTimeMillis();
-                        Bitmap b = meanImg.asBitmap();
-                        Log.i(TAG, "Conversion time: " + (System.currentTimeMillis() - startTime));
+                        int threshOffset = (int)(0.15 * totalMean);
+                        meanImg = img.adaptiveThreshold((byte)255, (byte)0, threshOffset, meanImg, meanImg);
+                        Log.i(TAG, "thresholding time: " + (System.currentTimeMillis() - startTime));
                         
+                        try {
+                            // Dump mean filter ouput
+                            FileOutputStream os = new FileOutputStream("/sdcard/bin_dump" + dumpCount + ".gray");
+                            os.write(meanImg.getData());
+                            os.close();
+                        } catch (IOException e) { }
+                                                
+                        //Log.i(TAG, "Start ARGB conversion");
+                        //startTime = System.currentTimeMillis();
+                        //int[] tmp = new int[mPreviewWidth * mPreviewHeight];
+                        //Log.i(TAG, "Allocated buffer in " + (System.currentTimeMillis() - startTime));
+                        //startTime = System.currentTimeMillis();
+                        //Bitmap b = meanImg.asBitmap();
+                        //Log.i(TAG, "Conversion time: " + (System.currentTimeMillis() - startTime));
+                        
+                        ++dumpCount;
+
                         mPreviewCaptureInProgress = false; // FIXME - move back up
                     }
                 };
