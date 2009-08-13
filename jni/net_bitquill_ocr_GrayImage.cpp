@@ -147,7 +147,7 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeMeanFilter
     env->ReleaseByteArrayElements(jout, (jbyte *)out, 0);
 }
 
-JNIEXPORT jint JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
+JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
   (JNIEnv *env, jclass cls, jbyteArray jin, jint width, jint height)
 {
     // Check parameters
@@ -162,16 +162,47 @@ JNIEXPORT jint JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
 
     unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
 
-    int total = 0;
+    int sum = 0;
     for (int i = 0;  i < height;  i++) {
         for (int j = 0;  j < width;  j++) {
-            total += getPixel(in, width, i, j);
+            sum += getPixel(in, width, i, j);
         }
     }
 
     env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
 
-    return total / (width * height);
+    return (jfloat)sum / (width * height);
+}
+
+JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance
+  (JNIEnv *env, jclass cls, jbyteArray jin, jint width, jint height)
+{
+    // Check parameters
+    if (width < 0 || height < 0) {
+        throwException(env, "java/lang/IllegalArgumentException", "Width and height must be non-negative");
+        return -1;
+    }
+    if (env->GetArrayLength(jin) < width*height) {
+        throwException(env, "java/lang/IllegalArgumentException", "Input array too short");
+        return -1;
+    }
+
+    unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
+
+    int sum = 0;
+    long sumSquares = 0;  // int may overflow
+    for (int i = 0;  i < height;  i++) {
+        for (int j = 0;  j < width;  j++) {
+            unsigned char val = getPixel(in, width, i, j);
+            sum += val;
+            sumSquares += val*val;
+        }
+    }
+
+    env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
+
+    jfloat mean = (jfloat)sum / width * height;
+    return (jfloat)sumSquares / (width * height) - mean*mean;
 }
 
 JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeGrayToARGB

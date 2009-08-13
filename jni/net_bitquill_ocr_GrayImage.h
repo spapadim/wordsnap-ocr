@@ -20,7 +20,15 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeMeanFilter
  * Method:    nativeMean
  * Signature: ([BII)I
  */
-JNIEXPORT jint JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
+JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
+  (JNIEnv *, jclass, jbyteArray, jint, jint);
+
+/*
+ * Class:     net_bitquill_ocr_GrayImage
+ * Method:    nativeStdev
+ * Signature: ([BII)I
+ */
+JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance
   (JNIEnv *, jclass, jbyteArray, jint, jint);
 
 /*
