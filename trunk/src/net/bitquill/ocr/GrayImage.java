@@ -5,81 +5,65 @@ import android.graphics.Rect;
 import android.graphics.Bitmap.Config;
 import android.util.Log;
 
-public class GrayImage {
+public class GrayImage extends GrayMatrix {
     
-    private static final String TAG = "PreviewImage";
+    private static final String TAG = "GrayImage";
     
     static {
         try {
-            System.loadLibrary("ocr");
+            System.loadLibrary("imageproc");
         } catch (UnsatisfiedLinkError ule) {
-            Log.e(TAG, "Could not load native library ocr", ule);
+            Log.e(TAG, "Could not load native library imageproc", ule);
         }   
     }
     
-    private byte[] mData;
-    private int mWidth;
-    private int mHeight;
-    
-    // TODO - decide method scope
     protected GrayImage (int width, int height) {
-        mWidth = width;
-        mHeight = height;
-        mData = new byte[width * height];
+        super(width, height);
     }
-
+    
     public GrayImage (byte[] data, int width, int height) {
-        if (data.length < width * height) {
-            throw new IllegalArgumentException("Image data array is too short");
-        }
-        mData = data;
-        mWidth = width;
-        mHeight = height;
+        super(data, width, height);
     }
     
-    /**
-     * Copy constructor.
-     * @param other  PreviewImage to copy from.
-     */
     public GrayImage (GrayImage other) {
-        int width = other.mWidth;
-        int height = other.mHeight;
-        mWidth = width;
-        mHeight = height;
-        mData = new byte[width*height];
-        System.arraycopy(other.mData, 0, mData, 0, width * height);
-    }
-    
-    public final int getWidth () {
-        return mWidth;
-    }
-    
-    public final int getHeight () {
-        return mHeight;
-    }
-    
-    public final int getPixel (int i, int j) {
-        return GrayImage.getPixel(mData, mWidth, i, j);
-    }
-    
-    public final void setPixel (int i, int j, byte value) {
-        GrayImage.setPixel(mData, mWidth, i, j, value);
-    }
-    
-    public final void getRow (int i, byte[] values) {
-        int width = mWidth;
-        System.arraycopy(mData, i*width, values, 0, width);
-    }
-    
-    // FIXME - remove this method??
-    public final byte[] getData () {
-        return mData;
+        super(other);
     }
     
     public int mean () {
         return GrayImage.nativeMean(mData, mWidth, mHeight);
     }
     
+    public GrayImage erode (StructuringElement strel, GrayImage dest) {
+        if (dest.mWidth != mWidth || dest.mHeight != mHeight) {
+            throw new IllegalArgumentException("Destination image size must match");
+        }
+        GrayImage.nativeErode(mData, dest.mData, mWidth, mHeight, 
+                strel.getNumNeighbors(), 
+                strel.getHorizontalOffsets(), strel.getVerticalOffsets(), 
+                strel.getLinearOffsets(mWidth, mHeight), 
+                strel.getMinX(), strel.getMaxX(), 
+                strel.getMinY(), strel.getMaxY());
+        return dest;
+    }
+    
+    public GrayImage erode (StructuringElement strel) {
+        return erode(strel, new GrayImage(mWidth, mHeight));
+    }
+    
+    public GrayImage dilate (StructuringElement strel, GrayImage dest) {
+        GrayImage.nativeDilate(mData, dest.mData, mWidth, mHeight, 
+                strel.getNumNeighbors(), 
+                strel.getHorizontalOffsets(), strel.getVerticalOffsets(), 
+                strel.getLinearOffsets(mWidth, mHeight), 
+                strel.getMinX(), strel.getMaxX(), 
+                strel.getMinY(), strel.getMaxY());
+        return dest;
+    }
+    
+    public GrayImage dilate (StructuringElement strel) {
+        return dilate(strel, new GrayImage(mWidth, mHeight));
+    }
+
     public GrayImage meanFilter (int radius, GrayImage dest) {
         if (dest.mWidth != mWidth || dest.mHeight != mHeight) {
             throw new IllegalArgumentException("Destination image size must match");
@@ -136,14 +120,6 @@ public class GrayImage {
         return asBitmap(0, 0, mWidth, mHeight);
     }
      
-    private static final int getPixel (byte[] data, int width, int i, int j) {
-        return data[i*width + j] & 0xFF;
-    }
-
-    private static final void setPixel (byte[] data, int width, int i, int j, byte value) {
-        data[i*width + j] = value;
-    }
-        
     /**
      * Adaptive mean filter for grayscale image, using a square filter of given radius.
      * 
@@ -163,10 +139,17 @@ public class GrayImage {
     
     native private static void nativeAdaptiveThreshold (byte[] in, byte[] thresh, byte[] out, int width, int heigth, byte hi, byte lo, int offset);
     
-    native private static int nativeMean (byte[] in, int width, int height);
-    
     native private static void nativeGrayToARGB (byte[] in, int imgWidth, int imgHeight, int[] out, int left, int top, int width, int height);
     
+    native private static int nativeMean (byte[] in, int width, int height);
+    
+    native private static void nativeErode (byte[] in, byte[] out, int width, int height, 
+            int numNeighbors, int[] hOffsets, int vOffsets[], int linearOffsets[],
+            int minX, int maxX, int minY, int maxY);
+    native private static void nativeDilate (byte[] in, byte[] out, int width, int height, 
+            int numNeighbors, int[] hOffsets, int vOffsets[], int linearOffsets[],
+            int minX, int maxX, int minY, int maxY);
+
     static public void decode (byte[] yuv, int width, int height) {
         byte[] mean = new byte[width * height];
         nativeMeanFilter(yuv, mean, width, height, 10);

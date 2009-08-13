@@ -24,7 +24,7 @@ JNIEXPORT jint JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
   (JNIEnv *, jclass, jbyteArray, jint, jint);
 
 /*
- * Class:     net_bitquill_ocr_PreviewImage
+ * Class:     net_bitquill_ocr_GrayImage
  * Method:    nativeGrayToARGB
  * Signature: ([BII[IIII)V
  */
@@ -32,12 +32,30 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeGrayToARGB
   (JNIEnv *, jclass, jbyteArray, jint, jint, jintArray, jint, jint, jint, jint);
 
 /*
- * Class:     net_bitquill_ocr_PreviewImage
+ * Class:     net_bitquill_ocr_GrayImage
  * Method:    nativeAdaptiveThreshold
  * Signature: ([B[B[BIIBBI)V
  */
 JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeAdaptiveThreshold
   (JNIEnv *, jclass, jbyteArray, jbyteArray, jbyteArray, jint, jint, jbyte, jbyte, jint);
+
+/*
+ * Class:     net_bitquill_ocr_GrayImage
+ * Method:    nativeErode
+ * Signature: ([B[BIII[I[I[IIIII)V
+ */
+JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeErode
+  (JNIEnv *, jclass, jbyteArray, jbyteArray, jint, jint,
+        jint, jintArray, jintArray, jintArray, jint, jint, jint, jint);
+
+/*
+ * Class:     net_bitquill_ocr_GrayImage
+ * Method:    nativeDilate
+ * Signature: ([B[BIII[I[I[IIIII)V
+ */
+JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeDilate
+  (JNIEnv *, jclass, jbyteArray, jbyteArray, jint, jint,
+        jint, jintArray, jintArray, jintArray, jint, jint, jint, jint);
 
 #ifdef __cplusplus
 }
