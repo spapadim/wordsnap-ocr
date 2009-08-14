@@ -198,11 +198,6 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
                         GrayImage meanImg = img.meanFilter(10);
                         Log.i(TAG, "meanFilter time: " + (System.currentTimeMillis() - startTime));
 
-                        Log.i(TAG, "Start mean");
-                        startTime = System.currentTimeMillis();
-                        float totalMean = img.mean();
-                        Log.i(TAG, "mean time: " + (System.currentTimeMillis() - startTime) + " (value " + totalMean + ")");
-
                         try {
                             // Dump mean filter output
                             FileOutputStream os = new FileOutputStream("/sdcard/mean_dump" + dumpCount + ".gray");
@@ -210,6 +205,33 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
                             os.close();
                         } catch (IOException e) { }
 
+                        Log.i(TAG, "Start mean");
+                        startTime = System.currentTimeMillis();
+                        float totalMean = img.mean();
+                        Log.i(TAG, "mean time: " + (System.currentTimeMillis() - startTime) + " (value " + totalMean + ")");
+                        startTime = System.currentTimeMillis();
+                        float imgVariance = img.variance();
+                        Log.i(TAG, "variance time: " + (System.currentTimeMillis() - startTime) + "(value " + imgVariance + ")");
+                        
+                        Log.i(TAG, "Start histogram");
+                        startTime = System.currentTimeMillis();
+                        int[] hist = img.histogram();
+                        Log.i(TAG, "histogram time: " + (System.currentTimeMillis() - startTime));
+                        float mean = 0;
+                        int count = 0;
+                        for (int i = 0; i < 256; i++) {
+                            mean += i*hist[i];
+                            count += hist[i];
+                        }
+                        mean /= count;
+                        float var = 0;
+                        for (int i = 0;  i < 256;  i++) {
+                            var += hist[i]*(i - mean)*(i - mean);
+                        }
+                        var /= count;
+                        Log.i(TAG, "count=" + count + " w*h=" + (mPreviewWidth*mPreviewHeight) + " mean=" + mean);
+                        Log.i(TAG, "var=" + var + " stdev=" + Math.sqrt(var));
+                        
                         Log.i(TAG, "Start thresholding");
                         startTime = System.currentTimeMillis();
                         int threshOffset = (int)(0.1 * totalMean);
