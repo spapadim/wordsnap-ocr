@@ -29,12 +29,21 @@ public class GrayImage extends GrayMatrix {
         super(other);
     }
     
-    public float mean () {
+    final public float mean () {
         return GrayImage.nativeMean(mData, mWidth, mHeight);
     }
     
-    public float variance () {
+    final public float variance () {
         return GrayImage.nativeVariance(mData, mWidth, mHeight);
+    }
+    
+    final public int[] histogram (int[] hist) {
+        GrayImage.nativeHistogram(mData, mWidth, mHeight, hist);
+        return hist;
+    }
+    
+    final public int[] histogram () {
+        return histogram(new int[256]);
     }
     
     public GrayImage erode (StructuringElement strel, GrayImage dest) {
@@ -147,6 +156,8 @@ public class GrayImage extends GrayMatrix {
     
     native private static float nativeMean (byte[] in, int width, int height);
     native private static float nativeVariance (byte[] in, int width, int height);
+    
+    native private static void nativeHistogram (byte[] in, int width, int height, int[] hist);
     
     native private static void nativeErode (byte[] in, byte[] out, int width, int height, 
             int numNeighbors, int[] hOffsets, int vOffsets[], int linearOffsets[],

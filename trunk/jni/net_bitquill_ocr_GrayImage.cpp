@@ -113,6 +113,10 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeMeanFilter
         throwException(env, "java/lang/IllegalArgumentException", "Width and height must be non-negative");
         return;
     }
+    if (2*radius + 1 > width || 2*radius + 1 > height) {
+        throwException(env, "java/lang/IllegalArgumentException", "Radius is too large");
+        return;
+    }
     if (env->GetArrayLength(jin) < width*height) {
         throwException(env, "java/lang/IllegalArgumentException", "Input array too short");
         return;
@@ -201,8 +205,40 @@ JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance
 
     env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
 
-    jfloat mean = (jfloat)sum / width * height;
+    jfloat mean = (jfloat)sum / (width * height);
     return (jfloat)sumSquares / (width * height) - mean*mean;
+}
+
+JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeHistogram
+  (JNIEnv *env, jclass cls, jbyteArray jin, jint width, jint height, jintArray jout)
+{
+    // Check parameters
+    if (width < 0 || height < 0) {
+        throwException(env, "java/lang/IllegalArgumentException", "Width and height must be non-negative");
+        return;
+    }
+    if (env->GetArrayLength(jin) < width*height) {
+        throwException(env, "java/lang/IllegalArgumentException", "Input array too short");
+        return;
+    }
+    if (env->GetArrayLength(jout) != 256) {
+        throwException(env, "java/lang/IllegalArgumentException", "histogram array length isn't 256");
+        return;
+    }
+
+    unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
+    jint *out = env->GetIntArrayElements(jout, 0);
+
+    memset(out, 0, sizeof(jint)); // XXX C++ way?
+    for (int i = 0;  i < height;  i++) {
+        for (int j = 0;  j < width;  j++) {
+            unsigned char val = getPixel(in, width, i, j);
+            ++out[val];
+        }
+    }
+
+    env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
+    env->ReleaseIntArrayElements(jout, (jint *)out, 0);
 }
 
 JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeGrayToARGB
@@ -272,8 +308,8 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeAdaptiveThreshold
 
     for (int i = 0;  i < height;  i++) {
         for (int j = 0;  j < width;  j++) {
-            unsigned char thr = getPixel(in, width, i, j);
-            unsigned char val = getPixel(thresh, width, i, j);
+            unsigned int val = getPixel(thresh, width, i, j); // int may over/underflow below
+            unsigned int thr = getPixel(in, width, i, j);
             setPixel(out, width, i, j, (thr - val < offset) ? (unsigned char)hi : (unsigned char)lo);
         }
     }
