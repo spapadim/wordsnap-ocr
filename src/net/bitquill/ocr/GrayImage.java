@@ -29,12 +29,32 @@ public class GrayImage extends GrayMatrix {
         super(other);
     }
     
+    final public float mean (Rect roi) {
+        int left = roi.left, top = roi.top;
+        return GrayImage.nativeMean(mData, mWidth, mHeight, left, top, roi.right - left, roi.bottom - top);
+    }
+    
     final public float mean () {
-        return GrayImage.nativeMean(mData, mWidth, mHeight);
+        int width = mWidth, height = mHeight;
+        return GrayImage.nativeMean(mData, width, height, 0, 0, width, height);
+    }
+    
+    final public float variance (Rect roi) {
+        int left = roi.left, top = roi.top;
+        return GrayImage.nativeVariance(mData, mWidth, mHeight, left, top, roi.right - left, roi.bottom - top);        
     }
     
     final public float variance () {
-        return GrayImage.nativeVariance(mData, mWidth, mHeight);
+        int width = mWidth, height = mHeight;
+        return GrayImage.nativeVariance(mData, width, height, 0, 0, width, height);
+    }
+    
+    final public float mean0 () {
+        return GrayImage.nativeMean0(mData, mWidth, mHeight);
+    }
+    
+    final public float variance0 () {
+        return GrayImage.nativeVariance0(mData, mWidth, mHeight);
     }
     
     final public int[] histogram (int[] hist) {
@@ -154,9 +174,12 @@ public class GrayImage extends GrayMatrix {
     
     native private static void nativeGrayToARGB (byte[] in, int imgWidth, int imgHeight, int[] out, int left, int top, int width, int height);
     
-    native private static float nativeMean (byte[] in, int width, int height);
-    native private static float nativeVariance (byte[] in, int width, int height);
-    
+    native private static float nativeMean0 (byte[] in, int width, int height);
+    native private static float nativeVariance0 (byte[] in, int width, int height);
+
+    native private static float nativeMean (byte[] in, int imgWidth, int imgHeight, int left, int top, int width, int height);
+    native private static float nativeVariance (byte[] in, int imgWidth, int imgHeight, int left, int top, int width, int height);
+
     native private static void nativeHistogram (byte[] in, int width, int height, int[] hist);
     
     native private static void nativeErode (byte[] in, byte[] out, int width, int height, 

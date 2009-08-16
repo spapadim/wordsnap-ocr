@@ -17,19 +17,35 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeMeanFilter
 
 /*
  * Class:     net_bitquill_ocr_GrayImage
- * Method:    nativeMean
+ * Method:    nativeMean0
  * Signature: ([BII)F
  */
-JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
+JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean0
   (JNIEnv *, jclass, jbyteArray, jint, jint);
 
 /*
  * Class:     net_bitquill_ocr_GrayImage
- * Method:    nativeVariance
+ * Method:    nativeVariance0
  * Signature: ([BII)F
  */
-JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance
+JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance0
   (JNIEnv *, jclass, jbyteArray, jint, jint);
+
+/*
+ * Class:     net_bitquill_ocr_GrayImage
+ * Method:    nativeMean
+ * Signature: ([BIIIIII)F
+ */
+JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
+  (JNIEnv *, jclass, jbyteArray, jint, jint, jint, jint, jint, jint);
+
+/*
+ * Class:     net_bitquill_ocr_GrayImage
+ * Method:    nativeVariance
+ * Signature: ([BIIIIII)F
+ */
+JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance
+  (JNIEnv *, jclass, jbyteArray, jint, jint, jint, jint, jint, jint);
 
 /*
  * Class:     net_bitquill_ocr_GrayImage
