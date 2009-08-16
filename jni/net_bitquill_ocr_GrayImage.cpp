@@ -189,6 +189,50 @@ static inline void submatrixReduce
     }
 }
 
+static struct MinReducer {
+    inline void operator () (unsigned char &mn, unsigned char val) {
+        mn = min(mn, val);
+    }
+} minReducer;
+
+JNIEXPORT jint JNICALL Java_net_bitquill_ocr_GrayImage_nativeMin
+  (JNIEnv *env, jclass cls, jbyteArray jin, jint imgWidth, jint imgHeight,
+          int left, int top, int width, int height)
+{
+    if (!validateReduceParameters(env, jin, imgWidth, imgHeight, left, top, width, height)) {
+        return -1;
+    }
+
+    unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
+    unsigned char mn = 255;
+    submatrixReduce(in, imgWidth, imgHeight, left, top, width, height, minReducer, mn);
+    env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
+
+    return mn;
+}
+
+static struct MaxReducer {
+    inline void operator () (unsigned char &mx, unsigned char val) {
+        mx = max(mx, val);
+    }
+} maxReducer;
+
+JNIEXPORT jint JNICALL Java_net_bitquill_ocr_GrayImage_nativeMax
+  (JNIEnv *env, jclass cls, jbyteArray jin, jint imgWidth, jint imgHeight,
+          int left, int top, int width, int height)
+{
+    if (!validateReduceParameters(env, jin, imgWidth, imgHeight, left, top, width, height)) {
+        return -1;
+    }
+
+    unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
+    unsigned char mx = 0;
+    submatrixReduce(in, imgWidth, imgHeight, left, top, width, height, maxReducer, mx);
+    env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
+
+    return mx;
+}
+
 static struct SumReducer {
     inline void operator () (int &sum, unsigned char val) {
         sum += val;
@@ -213,7 +257,7 @@ JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
 
 struct SSQ {
     int sum;
-    long sumSquares;
+    long long sumSquares;
     SSQ () : sum(0), sumSquares(0) { }
 };
 
@@ -242,92 +286,25 @@ JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance
     return (jfloat)ssq.sumSquares / (width * height) - mean*mean;
 }
 
-JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean0
-  (JNIEnv *env, jclass cls, jbyteArray jin, jint width, jint height)
-{
-    // Check parameters
-    if (width < 0 || height < 0) {
-        throwException(env, "java/lang/IllegalArgumentException", "Width and height must be non-negative");
-        return -1;
+static struct HistogramReducer {
+    inline void operator () (jint *hist, unsigned char val) {
+        ++hist[val];
     }
-    if (env->GetArrayLength(jin) < width*height) {
-        throwException(env, "java/lang/IllegalArgumentException", "Input array too short");
-        return -1;
-    }
-
-    unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
-
-    int sum = 0;
-    for (int i = 0;  i < height;  i++) {
-        for (int j = 0;  j < width;  j++) {
-            sum += getPixel(in, width, i, j);
-        }
-    }
-
-    env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
-
-    return (jfloat)sum / (width * height);
-}
-
-JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance0
-  (JNIEnv *env, jclass cls, jbyteArray jin, jint width, jint height)
-{
-    // Check parameters
-    if (width < 0 || height < 0) {
-        throwException(env, "java/lang/IllegalArgumentException", "Width and height must be non-negative");
-        return -1;
-    }
-    if (env->GetArrayLength(jin) < width*height) {
-        throwException(env, "java/lang/IllegalArgumentException", "Input array too short");
-        return -1;
-    }
-
-    unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
-
-    int sum = 0;
-    long sumSquares = 0;  // int may overflow
-    for (int i = 0;  i < height;  i++) {
-        for (int j = 0;  j < width;  j++) {
-            unsigned char val = getPixel(in, width, i, j);
-            sum += val;
-            sumSquares += val*val;
-        }
-    }
-
-    env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
-
-    jfloat mean = (jfloat)sum / (width * height);
-    return (jfloat)sumSquares / (width * height) - mean*mean;
-}
+} histogramReducer;
 
 JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeHistogram
-  (JNIEnv *env, jclass cls, jbyteArray jin, jint width, jint height, jintArray jout)
+  (JNIEnv *env, jclass cls, jbyteArray jin, jint imgWidth, jint imgHeight,
+          jintArray jout,
+          jint left, jint top, jint width, jint height)
 {
-    // Check parameters
-    if (width < 0 || height < 0) {
-        throwException(env, "java/lang/IllegalArgumentException", "Width and height must be non-negative");
-        return;
-    }
-    if (env->GetArrayLength(jin) < width*height) {
-        throwException(env, "java/lang/IllegalArgumentException", "Input array too short");
-        return;
-    }
-    if (env->GetArrayLength(jout) != 256) {
-        throwException(env, "java/lang/IllegalArgumentException", "histogram array length isn't 256");
+    if (!validateReduceParameters(env, jin, imgWidth, imgHeight, left, top, width, height)) {
         return;
     }
 
     unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
     jint *out = env->GetIntArrayElements(jout, 0);
-
     memset(out, 0, sizeof(jint)); // XXX C++ way?
-    for (int i = 0;  i < height;  i++) {
-        for (int j = 0;  j < width;  j++) {
-            unsigned char val = getPixel(in, width, i, j);
-            ++out[val];
-        }
-    }
-
+    submatrixReduce(in, imgWidth, imgHeight, left, top, width, height, histogramReducer, out);
     env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
     env->ReleaseIntArrayElements(jout, (jint *)out, 0);
 }
