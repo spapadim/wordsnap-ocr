@@ -205,6 +205,7 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
                             os.close();
                         } catch (IOException e) { }
 
+                        // mean & variance
                         Log.i(TAG, "Start mean");
                         startTime = System.currentTimeMillis();
                         float totalMean = img.mean();
@@ -213,15 +214,8 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
                         float imgVariance = img.variance();
                         Log.i(TAG, "variance time: " + (System.currentTimeMillis() - startTime) + "(value " + imgVariance + ")");
 
-                        Log.i(TAG, "Start mean0");
-                        startTime = System.currentTimeMillis();
-                        totalMean = img.mean0();
-                        Log.i(TAG, "mean0 time: " + (System.currentTimeMillis() - startTime) + " (value " + totalMean + ")");
-                        startTime = System.currentTimeMillis();
-                        imgVariance = img.variance0();
-                        Log.i(TAG, "variance0 time: " + (System.currentTimeMillis() - startTime) + "(value " + imgVariance + ")");
-
-                        Log.i(TAG, "Start histogram");
+                        // hist
+                        Log.i(TAG, "Start new histogram");
                         startTime = System.currentTimeMillis();
                         int[] hist = img.histogram();
                         Log.i(TAG, "histogram time: " + (System.currentTimeMillis() - startTime));
@@ -240,6 +234,7 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
                         Log.i(TAG, "count=" + count + " w*h=" + (mPreviewWidth*mPreviewHeight) + " mean=" + mean);
                         Log.i(TAG, "var=" + var + " stdev=" + Math.sqrt(var));
                         
+                        // threshold
                         Log.i(TAG, "Start thresholding");
                         startTime = System.currentTimeMillis();
                         int threshOffset = (int)(0.1 * totalMean);
