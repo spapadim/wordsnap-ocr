@@ -212,7 +212,15 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
                         startTime = System.currentTimeMillis();
                         float imgVariance = img.variance();
                         Log.i(TAG, "variance time: " + (System.currentTimeMillis() - startTime) + "(value " + imgVariance + ")");
-                        
+
+                        Log.i(TAG, "Start mean0");
+                        startTime = System.currentTimeMillis();
+                        totalMean = img.mean0();
+                        Log.i(TAG, "mean0 time: " + (System.currentTimeMillis() - startTime) + " (value " + totalMean + ")");
+                        startTime = System.currentTimeMillis();
+                        imgVariance = img.variance0();
+                        Log.i(TAG, "variance0 time: " + (System.currentTimeMillis() - startTime) + "(value " + imgVariance + ")");
+
                         Log.i(TAG, "Start histogram");
                         startTime = System.currentTimeMillis();
                         int[] hist = img.histogram();

@@ -151,7 +151,98 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeMeanFilter
     env->ReleaseByteArrayElements(jout, (jbyte *)out, 0);
 }
 
+static bool validateReduceParameters
+  (JNIEnv *env, jbyteArray jin, jint imgWidth, jint imgHeight,
+          jint left, jint top, jint width, jint height)
+{
+    if (imgWidth < 0 || imgHeight < 0) {
+        throwException(env, "java/lang/IllegalArgumentException", "Image width and height must be non-negative");
+        return false;
+    }
+    if (env->GetArrayLength(jin) < imgWidth * imgHeight) {
+        throwException(env, "java/lang/IllegalArgumentException", "Input array too short");
+        return false;
+    }
+    if (width < 0 || height < 0) {
+        throwException(env, "java/lang/IllegalArgumentException", "ROI width and height must be non-negative");
+        return false;
+    }
+    if (left < 0 || left + width > imgWidth || top < 0 || top + height > imgHeight) {
+        throwException(env, "java/lang/IllegalArgumentException", "ROI exceeds image boundaries");
+        return false;
+    }
+    return true;
+}
+
+template <class Reducer, class Accumulator>
+static inline void submatrixReduce
+  (unsigned char *in, int imgWidth, int imgHeight,
+          int left, int top, int width, int height,
+          Reducer reducer, Accumulator& acc)
+{
+    // Parameters are assumed to be validated by validateReduceParameters
+    for (int i = top;  i < top + height;  i++) {
+        for (int j = left;  j < left + width;  j++) {
+            unsigned char val = getPixel(in, imgWidth, i, j);
+            reducer(acc, val);
+        }
+    }
+}
+
+static struct SumReducer {
+    inline void operator () (int &sum, unsigned char val) {
+        sum += val;
+    }
+} sumReducer;
+
 JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
+  (JNIEnv *env, jclass cls, jbyteArray jin, jint imgWidth, jint imgHeight,
+          int left, int top, int width, int height) {
+
+    if (!validateReduceParameters(env, jin, imgWidth, imgHeight, left, top, width, height)) {
+        return -1;
+    }
+
+    unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
+    int sum = 0;
+    submatrixReduce(in, imgWidth, imgHeight, left, top, width, height, sumReducer, sum);
+    env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
+
+    return (jfloat)sum / (width * height);
+}
+
+struct SSQ {
+    int sum;
+    long sumSquares;
+    SSQ () : sum(0), sumSquares(0) { }
+};
+
+static struct SSQReducer {
+    inline void operator () (SSQ &ssq, unsigned char val) {
+        ssq.sum += val;
+        ssq.sumSquares += val*val;
+    }
+} ssqReducer;
+
+JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance
+  (JNIEnv *env, jclass cls, jbyteArray jin, jint imgWidth, jint imgHeight,
+          jint left, jint top, jint width, jint height)
+{
+
+    if (!validateReduceParameters(env, jin, imgWidth, imgHeight, left, top, width, height)) {
+        return -1;
+    }
+
+    unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
+    SSQ ssq;
+    submatrixReduce(in, imgWidth, imgHeight, left, top, width, height, ssqReducer, ssq);
+    env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
+
+    jfloat mean = (jfloat)ssq.sum / (width * height);
+    return (jfloat)ssq.sumSquares / (width * height) - mean*mean;
+}
+
+JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean0
   (JNIEnv *env, jclass cls, jbyteArray jin, jint width, jint height)
 {
     // Check parameters
@@ -178,7 +269,7 @@ JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
     return (jfloat)sum / (width * height);
 }
 
-JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance
+JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance0
   (JNIEnv *env, jclass cls, jbyteArray jin, jint width, jint height)
 {
     // Check parameters
