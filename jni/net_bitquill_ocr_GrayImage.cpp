@@ -104,7 +104,7 @@ static void avgRow (const int* sum, int row,
     }
 }
 
-JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeMeanFilter
+void Java_net_bitquill_ocr_GrayImage_nativeMeanFilter
   (JNIEnv *env, jclass cls, jbyteArray jin, jbyteArray jout,
           jint width, jint height, jint radius)
 {
@@ -195,7 +195,7 @@ static struct MinReducer {
     }
 } minReducer;
 
-JNIEXPORT jint JNICALL Java_net_bitquill_ocr_GrayImage_nativeMin
+jint Java_net_bitquill_ocr_GrayImage_nativeMin
   (JNIEnv *env, jclass cls, jbyteArray jin, jint imgWidth, jint imgHeight,
           int left, int top, int width, int height)
 {
@@ -217,7 +217,7 @@ static struct MaxReducer {
     }
 } maxReducer;
 
-JNIEXPORT jint JNICALL Java_net_bitquill_ocr_GrayImage_nativeMax
+jint JNICALL Java_net_bitquill_ocr_GrayImage_nativeMax
   (JNIEnv *env, jclass cls, jbyteArray jin, jint imgWidth, jint imgHeight,
           int left, int top, int width, int height)
 {
@@ -239,7 +239,7 @@ static struct SumReducer {
     }
 } sumReducer;
 
-JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
+jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeMean
   (JNIEnv *env, jclass cls, jbyteArray jin, jint imgWidth, jint imgHeight,
           int left, int top, int width, int height) {
 
@@ -268,7 +268,7 @@ static struct SSQReducer {
     }
 } ssqReducer;
 
-JNIEXPORT jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance
+jfloat JNICALL Java_net_bitquill_ocr_GrayImage_nativeVariance
   (JNIEnv *env, jclass cls, jbyteArray jin, jint imgWidth, jint imgHeight,
           jint left, jint top, jint width, jint height)
 {
@@ -292,7 +292,7 @@ static struct HistogramReducer {
     }
 } histogramReducer;
 
-JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeHistogram
+void Java_net_bitquill_ocr_GrayImage_nativeHistogram
   (JNIEnv *env, jclass cls, jbyteArray jin, jint imgWidth, jint imgHeight,
           jintArray jout,
           jint left, jint top, jint width, jint height)
@@ -309,7 +309,7 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeHistogram
     env->ReleaseIntArrayElements(jout, (jint *)out, 0);
 }
 
-JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeGrayToARGB
+void Java_net_bitquill_ocr_GrayImage_nativeGrayToARGB
   (JNIEnv *env, jclass cls,
           jbyteArray jin, jint imgWidth, jint imgHeight,
           jintArray jout, jint left, jint top, jint width, jint height)
@@ -347,7 +347,7 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeGrayToARGB
     env->ReleaseIntArrayElements(jout, (jint *)out, 0);
 }
 
-JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeAdaptiveThreshold
+void Java_net_bitquill_ocr_GrayImage_nativeAdaptiveThreshold
   (JNIEnv *env, jclass cls,
     jbyteArray jin, jbyteArray jthresh, jbyteArray jout,
     jint width, jint height, jbyte hi, jbyte lo, jint offset)
@@ -499,7 +499,7 @@ static struct MinOp
     }
 } minOp;
 
-JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeErode
+void Java_net_bitquill_ocr_GrayImage_nativeErode
   (JNIEnv *env, jclass cls,
           jbyteArray jin, jbyteArray jout, jint width, jint height,
           jint numNeighbors,
@@ -521,7 +521,7 @@ static struct maxOp
     }
 } maxOp;
 
-JNIEXPORT void JNICALL Java_net_bitquill_ocr_GrayImage_nativeDilate
+void Java_net_bitquill_ocr_GrayImage_nativeDilate
   (JNIEnv *env, jclass cls,
           jbyteArray jin, jbyteArray jout, jint width, jint height,
           jint numNeighbors,
