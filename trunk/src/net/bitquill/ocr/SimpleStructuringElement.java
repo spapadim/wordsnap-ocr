@@ -65,7 +65,7 @@ public class SimpleStructuringElement extends GrayMatrix implements StructuringE
     }
     
     public SimpleStructuringElement (byte[] mask, int width, int height) {
-        this(mask, width, height, width/2, height/2);
+        this(mask, width, height, height/2, width/2);
     }
 
     @Override
@@ -111,13 +111,13 @@ public class SimpleStructuringElement extends GrayMatrix implements StructuringE
         int[] deltaY = mDeltaY;
         
         int ofs[] = new int[numNeighbors];
-        for (int ni = 0;  ni < numNeighbors;  ni++) {
-            ofs[ni] = deltaX[ni] * imgWidth + deltaY[ni];
+        for (int n = 0;  n < numNeighbors;  n++) {
+            ofs[n] = deltaX[n] * imgWidth + deltaY[n];
         }
         return ofs;
     }
     
-    public static final SimpleStructuringElement createHorizontal (int radius) {
+    public static final SimpleStructuringElement makeHorizontal (int radius) {
         int length = 2*radius + 1;
         byte[] mask = new byte[length];
         Arrays.fill(mask, (byte)1);
@@ -125,7 +125,7 @@ public class SimpleStructuringElement extends GrayMatrix implements StructuringE
     }
     
     // FIXME consolidate with createHorizontal ?
-    public static final SimpleStructuringElement createVertical (int radius) {
+    public static final SimpleStructuringElement makeVertical (int radius) {
         int length = 2*radius + 1;
         byte[] mask = new byte[length];
         Arrays.fill(mask, (byte)1);
