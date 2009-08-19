@@ -28,10 +28,13 @@ public class GrayImage extends GrayMatrix {
     public GrayImage (GrayImage other) {
         super(other);
     }
+    
+    final public int min (int left, int top, int right, int bottom) {
+        return GrayImage.nativeMax(mData, mWidth, mHeight, left, top, right - left, bottom - top);
+    }
 
     final public int min (Rect roi) {
-        int left = roi.left, top = roi.top;
-        return GrayImage.nativeMin(mData, mWidth, mHeight, left, top, roi.right - left, roi.bottom - top);
+        return GrayImage.nativeMin(mData, mWidth, mHeight, roi.left, roi.top, roi.right, roi.bottom);
     }
     
     final public int min () {
@@ -39,9 +42,12 @@ public class GrayImage extends GrayMatrix {
         return GrayImage.nativeMin(mData, width, height, 0, 0, width, height);
     }
 
+    final public int max (int left, int top, int right, int bottom) {
+        return GrayImage.nativeMax(mData, mWidth, mHeight, left, top, right - left, bottom - top);
+    }
+    
     final public int max (Rect roi) {
-        int left = roi.left, top = roi.top;
-        return GrayImage.nativeMax(mData, mWidth, mHeight, left, top, roi.right - left, roi.bottom - top);
+        return max(roi.left, roi.top, roi.right, roi.bottom);
     }
     
     final public int max () {
@@ -143,6 +149,10 @@ public class GrayImage extends GrayMatrix {
         }
         GrayImage.nativeAdaptiveThreshold(mData, thresh.mData, dest.mData, width, height, hi, lo, offset);
         return dest;
+    }
+    
+    final public GrayImage adaptiveThreshold (byte hi, byte lo, int offset, GrayImage thresh) {
+        return adaptiveThreshold(hi, lo, offset, thresh, new GrayImage(mWidth, mHeight));
     }
     
     final public Bitmap asBitmap (int left, int top, int width, int height, int[] buf) {
