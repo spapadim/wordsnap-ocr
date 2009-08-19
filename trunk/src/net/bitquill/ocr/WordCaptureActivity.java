@@ -3,6 +3,7 @@ package net.bitquill.ocr;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
+import android.graphics.Bitmap.CompressFormat;
 import android.hardware.Camera;
 import android.hardware.Camera.Size;
 import android.os.Bundle;
@@ -18,10 +19,12 @@ import android.view.WindowManager;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-public class CaptureActivity extends Activity implements SurfaceHolder.Callback {
-    private static final String TAG = CaptureActivity.class.getName();
-    
-    private static final long AUTO_FOCUS_INTERVAL = 1750L;  // in milliseconds
+import net.bitquill.ocr.image.GrayImage;
+import net.bitquill.ocr.image.SimpleStructuringElement;
+import net.bitquill.ocr.weocr.WeOCRClient;
+
+public class WordCaptureActivity extends Activity implements SurfaceHolder.Callback {
+    private static final String TAG = WordCaptureActivity.class.getSimpleName();
     
     private static int dumpCount = 1;  // FIXME temporary
     
@@ -78,7 +81,9 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
         mCamera.autoFocus(new Camera.AutoFocusCallback() { 
             @Override
             public void onAutoFocus(boolean success, Camera camera) {
-                mHandler.sendEmptyMessage(R.id.msg_auto_focus);
+                Message msg = mHandler.obtainMessage(R.id.msg_auto_focus, 
+                        success ? 1 : 0, -1);
+                mHandler.sendMessage(msg);
             }
         });
     }
@@ -114,15 +119,31 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_FOCUS) {
-            requestAutoFocus();
+            if (event.getRepeatCount() == 0) {
+                requestAutoFocus();
+            }
             return true;
         } else if (keyCode == KeyEvent.KEYCODE_CAMERA) {
-            requestPreviewFrame();
+            if (event.getRepeatCount() == 0) {
+                requestPreviewFrame();
+            }
             return true;
         } else {
             return super.onKeyDown(keyCode, event);
         }
     }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_FOCUS) {
+            requestAutoFocus();
+            return true;
+        } else {
+            return super.onKeyUp(keyCode, event);
+        }
+    }
+    
+    
 
     public void surfaceCreated(SurfaceHolder holder) {
         // The Surface has been created, acquire the camera and tell it where
@@ -172,113 +193,72 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
         public void handleMessage(Message msg) {
             switch (msg.what) {
             case R.id.msg_auto_focus:
-                // TODO
+                boolean autoFocusSuccess = (msg.arg1 != 0) ? true : false;
                 mAutoFocusInProgress = false;
                 break;
             case R.id.msg_preview_frame:
                 //mPreviewCaptureInProgress = false;
                 final byte[] yuv = (byte[])msg.obj;
-                Thread t = new Thread() {
+                Thread preprocessThread = new Thread() {
                     @Override
                     public void run() {
-                        // TODO Auto-generated method stub
-
-                        try {
-                            // Dump raw camera input
-                            FileOutputStream os = new FileOutputStream("/sdcard/in_dump" + dumpCount + ".yuv");
-                            os.write(yuv);
-                            os.close();
-                        } catch (IOException e) { }
-
-
                         GrayImage img = new GrayImage(yuv, mPreviewWidth, mPreviewHeight);
-
-                        // Temporary timing test
-                        Log.i(TAG, "Start mean filtering");
                         long startTime = System.currentTimeMillis();
-                        GrayImage meanImg = img.meanFilter(10);
-                        Log.i(TAG, "meanFilter time: " + (System.currentTimeMillis() - startTime));
+                        Rect ext = makeTargetRect();
+                        GrayImage binImg = findWordExtent(img, ext);
+                        Log.i(TAG, "Find word extent in " + (System.currentTimeMillis() - startTime) + "msec");
+                        Log.i(TAG, "Extent is " + ext.top + "," + ext.left + "," + ext.bottom + "," + ext.right);
 
                         try {
-                            // Dump mean filter output
-                            FileOutputStream os = new FileOutputStream("/sdcard/mean_dump" + dumpCount + ".gray");
-                            os.write(meanImg.getData());
-                            os.close();
-                        } catch (IOException e) { }
-
-                        // mean & variance
-                        Log.i(TAG, "Start mean");
-                        startTime = System.currentTimeMillis();
-                        float totalMean = img.mean();
-                        Log.i(TAG, "mean time: " + (System.currentTimeMillis() - startTime) + " (value " + totalMean + ")");
-                        startTime = System.currentTimeMillis();
-                        float imgVariance = img.variance();
-                        Log.i(TAG, "variance time: " + (System.currentTimeMillis() - startTime) + "(value " + imgVariance + ")");
-
-                        // hist
-                        Log.i(TAG, "Start new histogram");
-                        startTime = System.currentTimeMillis();
-                        int[] hist = img.histogram();
-                        Log.i(TAG, "histogram time: " + (System.currentTimeMillis() - startTime));
-                        float mean = 0;
-                        int count = 0;
-                        for (int i = 0; i < 256; i++) {
-                            mean += i*hist[i];
-                            count += hist[i];
-                        }
-                        mean /= count;
-                        float var = 0;
-                        for (int i = 0;  i < 256;  i++) {
-                            var += hist[i]*(i - mean)*(i - mean);
-                        }
-                        var /= count;
-                        Log.i(TAG, "count=" + count + " w*h=" + (mPreviewWidth*mPreviewHeight) + " mean=" + mean);
-                        Log.i(TAG, "var=" + var + " stdev=" + Math.sqrt(var));
-                        
-                        // threshold
-                        Log.i(TAG, "Start thresholding");
-                        startTime = System.currentTimeMillis();
-                        int threshOffset = (int)(0.1 * totalMean);
-                        GrayImage binImg = img.adaptiveThreshold((byte)255, (byte)0, threshOffset, meanImg);
-                        Log.i(TAG, "thresholding time: " + (System.currentTimeMillis() - startTime));
-                        Log.i(TAG, "threshOffset = " + threshOffset);
-                        
-                        try {
-                            // Dump thresholded output
+                            // Temporary
                             FileOutputStream os = new FileOutputStream("/sdcard/bin_dump" + dumpCount + ".gray");
                             os.write(binImg.getData());
                             os.close();
-                        } catch (IOException e) { }
-                        
-                        // Dilate/erode
-                        Log.i(TAG, "Start strop");
+                        } catch (IOException ioe) { }
+
                         startTime = System.currentTimeMillis();
-                        GrayImage tmpImg = binImg.erode(hStrel);
-                        Log.i(TAG, "First step checkpoint " + (System.currentTimeMillis() - startTime) + " msec");
-                        tmpImg.erode(vStrel, binImg);
-                        Log.i(TAG, "Finished in " + (System.currentTimeMillis() - startTime) + " msec");
-                        
+                        Bitmap textBitmap = binImg.asBitmap(ext);
                         try {
-                            // Dump dilated/eroded output
-                            FileOutputStream os = new FileOutputStream("/sdcard/dil_dump" + dumpCount + ".gray");
-                            os.write(binImg.getData());
+                            // Temporary
+                            FileOutputStream os = new FileOutputStream("/sdcard/word_dump" + dumpCount + ".png");
+                            textBitmap.compress(CompressFormat.PNG, 80, os);
                             os.close();
-                        } catch (IOException e) { }                        
-                                                
-                        //Log.i(TAG, "Start ARGB conversion");
-                        //startTime = System.currentTimeMillis();
-                        //int[] tmp = new int[mPreviewWidth * mPreviewHeight];
-                        //Log.i(TAG, "Allocated buffer in " + (System.currentTimeMillis() - startTime));
-                        //startTime = System.currentTimeMillis();
-                        //Bitmap b = meanImg.asBitmap();
-                        //Log.i(TAG, "Conversion time: " + (System.currentTimeMillis() - startTime));
+                        } catch (IOException ioe) { }
+                        Log.i(TAG, "Dump in " + (System.currentTimeMillis() - startTime) + "msec");
                         
                         ++dumpCount;
 
                         mPreviewCaptureInProgress = false; // FIXME - move back up
+                        
+                        Message msg = mHandler.obtainMessage(R.id.msg_text_bitmap, textBitmap);
+                        mHandler.dispatchMessage(msg);
                     }
                 };
-                t.start();
+                preprocessThread.start();
+                break;
+            case R.id.msg_text_bitmap:
+                final Bitmap textBitmap = (Bitmap)msg.obj;
+                Thread ocrThread = new Thread() {
+                    @Override
+                    public void run () {
+                        synchronized (sWeOCRClient) {
+                            try {
+                                String ocrText = sWeOCRClient.doOCR(textBitmap);
+                                Message msg = mHandler.obtainMessage(R.id.msg_ocr_result, ocrText);
+                                mHandler.dispatchMessage(msg);
+                            } catch (IOException ioe) {
+                                // TODO
+                                Log.e(TAG, "WeOCR failed", ioe);
+                            }
+                        }
+                    }
+                };
+                ocrThread.start();
+                break;
+            case R.id.msg_ocr_result:
+                final String ocrText = (String)msg.obj;
+                Log.i(TAG, "OCR result text: " + ocrText);
+                // TODO
                 break;
             default:
                 super.handleMessage(msg);
@@ -286,30 +266,43 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
         }
     };
     
-    private static final SimpleStructuringElement hStrel = SimpleStructuringElement.makeHorizontal(2);
-    private static final SimpleStructuringElement vStrel = SimpleStructuringElement.makeVertical(2);
+    private static final float TARGET_HEIGHT_FRACTION = 0.033f;
+    private static final float TARGET_WIDTH_FRACTION = 0.021f;
+        
+    private Rect makeTargetRect () {
+        int halfWidth = (int)(TARGET_WIDTH_FRACTION * mPreviewWidth / 2.0f);
+        int halfHeight = (int)(TARGET_HEIGHT_FRACTION * mPreviewHeight / 2.0f);
+        int centerX = mPreviewHeight / 2;
+        int centerY = mPreviewWidth / 2;
+        return new Rect(centerY - halfWidth, centerX - halfHeight, 
+                    centerY + halfWidth, centerX + halfHeight);
+    }
     
-    private static final Rect findWordExtent (GrayImage img, Rect ext) {
-        if (ext == null) {
-            ext = new Rect(235, 155, 245, 165);  // FIXME don't hardcode these!
-        }
-
+    private static final WeOCRClient sWeOCRClient = new WeOCRClient("http://appsv.ocrgrid.org/cgi-bin/weocr/submit_ocrad.cgi"); // FIXME temporary
+    
+    private static final SimpleStructuringElement sHStrel = SimpleStructuringElement.makeHorizontal(2);
+    private static final SimpleStructuringElement sVStrel = SimpleStructuringElement.makeVertical(2);
+    
+    // FIXME make this return extracted Bitmap
+    private static final GrayImage findWordExtent (GrayImage img, Rect ext) {
         // Adaptive threshold
-        int threshOffset = (int)(0.5 * Math.sqrt(img.variance()));  // 0.5 pulled out of my butt
-        GrayImage binImg = img.meanFilter(10);  // Temporarily store local means here
         byte hi, lo;
-        if (img.mean() > 127) {
+        if (img.mean() > 127) { // Arbitrary threshold
+            // Most likely dark text on light background
             hi = (byte)255; 
             lo = (byte)0;
         } else {
+            // Most likely light text on dark background
             hi = (byte)0;
             lo = (byte)255;
         }
-        img.adaptiveThreshold(hi, lo, threshOffset, binImg, binImg);
+        GrayImage tmpImg = img.meanFilter(10);  // Temporarily store local means here
+        int threshOffset = (int)(0.5 * Math.sqrt(img.variance()));  // 0.5 pulled out of my butt
+        GrayImage resultImg = img.adaptiveThreshold(hi, lo, threshOffset, tmpImg);
         
         // Dilate; it's grayscale, so we should use erosion instead
-        GrayImage tmpImg = binImg.dilate(hStrel);
-        tmpImg.dilate(vStrel, binImg);
+        resultImg.erode(sHStrel, tmpImg);
+        GrayImage binImg = tmpImg.erode(sVStrel);
 
         // Find word extents
         int left = ext.left, right = ext.right, top = ext.top, bottom = ext.bottom;
@@ -318,26 +311,26 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
         do {
             extended = false;
             
-            if (top - 1 >= 0 && binImg.min(left, top - 1, right, top) == 0) {
+            if ((top - 1 >= 0) && binImg.min(left, top - 1, right, top) == 0) {
                 --top;
                 extended = true;
             }
-            if (bottom + 1 < imgHeight && binImg.min(left, bottom, right, bottom + 1) == 0) {
+            if ((bottom + 1 < imgHeight) && binImg.min(left, bottom, right, bottom + 1) == 0) {
                 ++bottom;
                 extended = true;
             }
-            if (left - 1 >= 0 && binImg.min(left - 1, top, left, bottom) == 0) {
+            if ((left - 1 >= 0) && binImg.min(left - 1, top, left, bottom) == 0) {
                 --left;
                 extended = true;
             }
-            if (right + 1 < imgWidth && binImg.min(right, top, right + 1, bottom) == 0) {
+            if ((right + 1 < imgWidth) && binImg.min(right, top, right + 1, bottom) == 0) {
                 ++right;
                 extended = true;
             }
         } while (extended);
         ext.set(left, top, right, bottom);            
         
-        return ext;
+        return resultImg;
     }
 
 }

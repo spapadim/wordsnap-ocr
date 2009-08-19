@@ -1,4 +1,4 @@
-package net.bitquill.ocr;
+package net.bitquill.ocr.image;
 
 import android.util.Log;
 
@@ -28,7 +28,7 @@ public class GrayMatrix {
 
     /**
      * Copy constructor.
-     * @param other  PreviewImage to copy from.
+     * @param other  GrayMatrix to copy from.
      */
     public GrayMatrix (GrayMatrix other) {
         int width = other.mWidth;

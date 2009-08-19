@@ -60,6 +60,11 @@ public final class WeOCRClient {
         // Parse response
         String status = r.readLine();
         if (status.length() != 0) {
+            // XXX temporary begin
+            for (String line = r.readLine();  line != null;  line = r.readLine()) {
+                status += line;
+            }
+            // XXX temporary end
             throw new IOException("WeOCR failed with status: " + status);
         }
         StringBuilder sb = new StringBuilder();  // XXX just use string?

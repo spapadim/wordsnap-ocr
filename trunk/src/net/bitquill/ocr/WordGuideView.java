@@ -8,12 +8,12 @@ import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.view.View;
 
-public class GuideView extends View {
+public class WordGuideView extends View {
     
     private static final float OUTER_FRACTION = 0.125f;  //  1/8th
     private static final float INNER_FRACTION = 0.083f;  //  1/12th
     private static final float WIDTH_FRACTION = 0.250f;  //  1/4th
-
+    
     private Paint mPaint;
     private Rect mRect;
     private int mDarkMaskColor;
@@ -21,7 +21,7 @@ public class GuideView extends View {
     private int mOuterColor;
     private int mInnerColor;
     
-    public GuideView(Context context, AttributeSet attrs) {
+    public WordGuideView(Context context, AttributeSet attrs) {
         super(context, attrs);
         
         // Initialize these once for performance rather than calling them every time in onDraw().

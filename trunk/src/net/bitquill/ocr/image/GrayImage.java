@@ -1,4 +1,4 @@
-package net.bitquill.ocr;
+package net.bitquill.ocr.image;
 
 import android.graphics.Bitmap;
 import android.graphics.Rect;
@@ -30,11 +30,11 @@ public class GrayImage extends GrayMatrix {
     }
     
     final public int min (int left, int top, int right, int bottom) {
-        return GrayImage.nativeMax(mData, mWidth, mHeight, left, top, right - left, bottom - top);
+        return GrayImage.nativeMin(mData, mWidth, mHeight, left, top, right - left, bottom - top);
     }
 
     final public int min (Rect roi) {
-        return GrayImage.nativeMin(mData, mWidth, mHeight, roi.left, roi.top, roi.right, roi.bottom);
+        return min(roi.left, roi.top, roi.right, roi.bottom);
     }
     
     final public int min () {

@@ -21,8 +21,8 @@ public class WeOCRFormEntity extends AbstractHttpEntity {
     
     private static final String BODY_HEADER = 
         BOUNDARY + "\n" +
-        "Content-Disposition: form-data; name=\"userfile\"; filename=\"text.png\"\n" +
-        "Content-Type: image/png\n" +
+        "Content-Disposition: form-data; name=\"userfile\"; filename=\"text.jpg\"\n" +
+        "Content-Type: image/jpeg\n" +
         "Content-Transfer-Encoding: binary\n" +
         "\n";
     private static final String BODY_TRAILER = 
@@ -46,13 +46,12 @@ public class WeOCRFormEntity extends AbstractHttpEntity {
 
     @Override
     public InputStream getContent() throws IOException, IllegalStateException {
-        // TODO Auto-generated method stub
-        return null;
+        throw new UnsupportedOperationException("WeOCRFormEntity does not support getContent()");
     }
 
     @Override
     public long getContentLength() {
-        return -1;  // Unknown, because PNG compression is done on-the-fly
+        return -1;  // Unknown, because JPEG compression is done on-the-fly
     }
 
     @Override
@@ -72,7 +71,7 @@ public class WeOCRFormEntity extends AbstractHttpEntity {
             throw new IllegalArgumentException("Output stream may not be null");
         }
         os.write(BODY_HEADER.getBytes("ascii"));  // XXX check
-        mImg.compress(Bitmap.CompressFormat.PNG, 80, os);
+        mImg.compress(Bitmap.CompressFormat.JPEG, 80, os);
         os.write(BODY_TRAILER.getBytes("ascii")); // XXX check
         os.flush();
     }
