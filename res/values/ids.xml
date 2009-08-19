@@ -1,3 +1,6 @@
-<resources><item type="id" name="msg_auto_focus"></item>
-<item type="id" name="msg_preview_frame"></item>
+<resources>
+	<item type="id" name="msg_auto_focus" />
+	<item type="id" name="msg_preview_frame" />
+	<item type="id" name="msg_text_bitmap" />
+	<item type="id" name="msg_ocr_result" />
 </resources>

@@ -1,4 +1,4 @@
-package net.bitquill.ocr;
+package net.bitquill.ocr.image;
 
 import java.util.Arrays;
 
