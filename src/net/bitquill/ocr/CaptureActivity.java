@@ -2,6 +2,7 @@ package net.bitquill.ocr;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.hardware.Camera;
 import android.hardware.Camera.Size;
 import android.os.Bundle;
@@ -238,15 +239,31 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
                         Log.i(TAG, "Start thresholding");
                         startTime = System.currentTimeMillis();
                         int threshOffset = (int)(0.1 * totalMean);
-                        meanImg = img.adaptiveThreshold((byte)255, (byte)0, threshOffset, meanImg, meanImg);
+                        GrayImage binImg = img.adaptiveThreshold((byte)255, (byte)0, threshOffset, meanImg);
                         Log.i(TAG, "thresholding time: " + (System.currentTimeMillis() - startTime));
+                        Log.i(TAG, "threshOffset = " + threshOffset);
                         
                         try {
                             // Dump thresholded output
                             FileOutputStream os = new FileOutputStream("/sdcard/bin_dump" + dumpCount + ".gray");
-                            os.write(meanImg.getData());
+                            os.write(binImg.getData());
                             os.close();
                         } catch (IOException e) { }
+                        
+                        // Dilate/erode
+                        Log.i(TAG, "Start strop");
+                        startTime = System.currentTimeMillis();
+                        GrayImage tmpImg = binImg.erode(hStrel);
+                        Log.i(TAG, "First step checkpoint " + (System.currentTimeMillis() - startTime) + " msec");
+                        tmpImg.erode(vStrel, binImg);
+                        Log.i(TAG, "Finished in " + (System.currentTimeMillis() - startTime) + " msec");
+                        
+                        try {
+                            // Dump dilated/eroded output
+                            FileOutputStream os = new FileOutputStream("/sdcard/dil_dump" + dumpCount + ".gray");
+                            os.write(binImg.getData());
+                            os.close();
+                        } catch (IOException e) { }                        
                                                 
                         //Log.i(TAG, "Start ARGB conversion");
                         //startTime = System.currentTimeMillis();
@@ -268,4 +285,59 @@ public class CaptureActivity extends Activity implements SurfaceHolder.Callback 
             }
         }
     };
+    
+    private static final SimpleStructuringElement hStrel = SimpleStructuringElement.makeHorizontal(2);
+    private static final SimpleStructuringElement vStrel = SimpleStructuringElement.makeVertical(2);
+    
+    private static final Rect findWordExtent (GrayImage img, Rect ext) {
+        if (ext == null) {
+            ext = new Rect(235, 155, 245, 165);  // FIXME don't hardcode these!
+        }
+
+        // Adaptive threshold
+        int threshOffset = (int)(0.5 * Math.sqrt(img.variance()));  // 0.5 pulled out of my butt
+        GrayImage binImg = img.meanFilter(10);  // Temporarily store local means here
+        byte hi, lo;
+        if (img.mean() > 127) {
+            hi = (byte)255; 
+            lo = (byte)0;
+        } else {
+            hi = (byte)0;
+            lo = (byte)255;
+        }
+        img.adaptiveThreshold(hi, lo, threshOffset, binImg, binImg);
+        
+        // Dilate; it's grayscale, so we should use erosion instead
+        GrayImage tmpImg = binImg.dilate(hStrel);
+        tmpImg.dilate(vStrel, binImg);
+
+        // Find word extents
+        int left = ext.left, right = ext.right, top = ext.top, bottom = ext.bottom;
+        int imgWidth = img.getWidth(), imgHeight = img.getHeight();
+        boolean extended;
+        do {
+            extended = false;
+            
+            if (top - 1 >= 0 && binImg.min(left, top - 1, right, top) == 0) {
+                --top;
+                extended = true;
+            }
+            if (bottom + 1 < imgHeight && binImg.min(left, bottom, right, bottom + 1) == 0) {
+                ++bottom;
+                extended = true;
+            }
+            if (left - 1 >= 0 && binImg.min(left - 1, top, left, bottom) == 0) {
+                --left;
+                extended = true;
+            }
+            if (right + 1 < imgWidth && binImg.min(right, top, right + 1, bottom) == 0) {
+                ++right;
+                extended = true;
+            }
+        } while (extended);
+        ext.set(left, top, right, bottom);            
+        
+        return ext;
+    }
+
 }

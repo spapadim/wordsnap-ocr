@@ -376,8 +376,9 @@ void Java_net_bitquill_ocr_GrayImage_nativeAdaptiveThreshold
 
     for (int i = 0;  i < height;  i++) {
         for (int j = 0;  j < width;  j++) {
-            unsigned int val = getPixel(thresh, width, i, j); // int may over/underflow below
-            unsigned int thr = getPixel(in, width, i, j);
+            // Use signed ints; chars and/or unsigned may overflow
+            int val = getPixel(in, width, i, j);
+            int thr = getPixel(thresh, width, i, j);
             setPixel(out, width, i, j, (thr - val < offset) ? (unsigned char)hi : (unsigned char)lo);
         }
     }
