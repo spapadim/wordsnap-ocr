@@ -15,6 +15,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Toast;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -258,7 +259,9 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             case R.id.msg_ocr_result:
                 final String ocrText = (String)msg.obj;
                 Log.i(TAG, "OCR result text: " + ocrText);
-                // TODO
+                Toast.makeText(WordCaptureActivity.this, "OCR result: " + ocrText, Toast.LENGTH_LONG)
+                     .show();
+                 // TODO
                 break;
             default:
                 super.handleMessage(msg);

@@ -1,13 +1,10 @@
 package net.bitquill.ocr.weocr;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.StringReader;
 
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.HttpPost;
@@ -41,6 +38,16 @@ public final class WeOCRClient {
     }
     
     public String doOCR (Bitmap img) throws IOException {
+        // XXX begin temporary
+        WeOCRFormEntity e = new WeOCRFormEntity(img);
+        try {
+            FileOutputStream os = new FileOutputStream("/sdcard/http.dump");
+            e.writeTo(os);
+            os.close();
+        } catch (IOException ioe) { }
+        //if (true) { return ""; }
+        // XXX end temporary
+       
         HttpPost post = new HttpPost(mEndpoint);
         post.setEntity(new WeOCRFormEntity(img));
 

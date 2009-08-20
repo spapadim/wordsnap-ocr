@@ -1,5 +1,6 @@
 package net.bitquill.ocr.weocr;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -7,6 +8,7 @@ import java.io.OutputStream;
 import org.apache.http.entity.AbstractHttpEntity;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.CompressFormat;
 
 /**
  * Simple implementation of form/multipart entity with hard-coded fields, 
@@ -16,32 +18,43 @@ import android.graphics.Bitmap;
  */
 public class WeOCRFormEntity extends AbstractHttpEntity {
     
-    private static final String BOUNDARY = "----------------GfHio#@q%f1a&dDg#eQ@";  // monkey-typed random string
+    private static final String BOUNDARY = "--------------GfHioqf1adDgeQwHF2fp9";  // monkey-typed random string
     private static final String CONTENT_TYPE = "multipart/form-data; boundary=" + BOUNDARY;
     
     private static final String BODY_HEADER = 
-        BOUNDARY + "\n" +
-        "Content-Disposition: form-data; name=\"userfile\"; filename=\"text.jpg\"\n" +
-        "Content-Type: image/jpeg\n" +
-        "Content-Transfer-Encoding: binary\n" +
-        "\n";
+        "--" + BOUNDARY + "\r\n" +
+        "Content-Disposition: form-data; name=\"userfile\"; filename=\"text.jpg\"\r\n" +
+        "Content-Type: image/jpeg\r\n" +
+        "Content-Transfer-Encoding: binary\r\n" +
+        "\r\n";
     private static final String BODY_TRAILER = 
-        BOUNDARY + "\n" +
-        "Content-Disposition: form-data; name =\"outputformat\"\n" +
-        "\n" +
-        "txt\n" +
-        BOUNDARY + "\n" +
-        "Content-Disposition: form-data; name=\"outputencoding\"\n" +
-        "\n" + 
-        "utf-8\n" +
-        BOUNDARY + "--";
+        "\r\n" + 
+        "--" + BOUNDARY + "\r\n" +
+        "Content-Disposition: form-data; name=\"outputformat\"\r\n" +
+        "\r\n" +
+        "txt\r\n" +
+        "--" + BOUNDARY + "\r\n" +
+        "Content-Disposition: form-data; name=\"outputencoding\"\r\n" +
+        "\r\n" + 
+        "utf-8\r\n" +
+        "--" + BOUNDARY + "--\r\n";
     
-    private Bitmap mImg;
+    private static final int STREAM_BUFFER_SIZE = 2560;
+    private ByteArrayOutputStream mImageStream;
     
-    public WeOCRFormEntity (Bitmap img) {
-        mImg = img;
+    public WeOCRFormEntity (Bitmap img, int quality) throws IOException {
+        // Write compressed image to memory; we need the content length
+        ByteArrayOutputStream imageStream = new ByteArrayOutputStream(STREAM_BUFFER_SIZE);
+        img.compress(CompressFormat.JPEG, quality, imageStream);
+        imageStream.close();
+        
+        mImageStream = imageStream;
         setContentType(CONTENT_TYPE);
         setChunked(false);
+    }
+    
+    public WeOCRFormEntity (Bitmap img) throws IOException {
+        this(img, 80);
     }
 
     @Override
@@ -51,12 +64,12 @@ public class WeOCRFormEntity extends AbstractHttpEntity {
 
     @Override
     public long getContentLength() {
-        return -1;  // Unknown, because JPEG compression is done on-the-fly
+        return mImageStream.size() + BODY_HEADER.length() + BODY_TRAILER.length();
     }
 
     @Override
     public boolean isRepeatable() {
-        return false;
+        return true;
     }
 
     @Override
@@ -71,7 +84,7 @@ public class WeOCRFormEntity extends AbstractHttpEntity {
             throw new IllegalArgumentException("Output stream may not be null");
         }
         os.write(BODY_HEADER.getBytes("ascii"));  // XXX check
-        mImg.compress(Bitmap.CompressFormat.JPEG, 80, os);
+        mImageStream.writeTo(os);
         os.write(BODY_TRAILER.getBytes("ascii")); // XXX check
         os.flush();
     }
