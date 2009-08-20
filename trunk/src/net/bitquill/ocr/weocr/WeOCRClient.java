@@ -38,16 +38,6 @@ public final class WeOCRClient {
     }
     
     public String doOCR (Bitmap img) throws IOException {
-        // XXX begin temporary
-        WeOCRFormEntity e = new WeOCRFormEntity(img);
-        try {
-            FileOutputStream os = new FileOutputStream("/sdcard/http.dump");
-            e.writeTo(os);
-            os.close();
-        } catch (IOException ioe) { }
-        //if (true) { return ""; }
-        // XXX end temporary
-       
         HttpPost post = new HttpPost(mEndpoint);
         post.setEntity(new WeOCRFormEntity(img));
 
