@@ -259,9 +259,10 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             case R.id.msg_ocr_result:
                 final String ocrText = (String)msg.obj;
                 Log.i(TAG, "OCR result text: " + ocrText);
-                Toast.makeText(WordCaptureActivity.this, "OCR result: " + ocrText, Toast.LENGTH_LONG)
-                     .show();
-                 // TODO
+                // Toast fails from this thread
+                //Toast.makeText(WordCaptureActivity.this, "OCR result: " + ocrText, Toast.LENGTH_LONG)
+                //     .show();
+                // TODO
                 break;
             default:
                 super.handleMessage(msg);
@@ -289,8 +290,10 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     // FIXME make this return extracted Bitmap
     private static final GrayImage findWordExtent (GrayImage img, Rect ext) {
         // Adaptive threshold
+        float imgMean = img.mean();
+        Log.i(TAG, "Image mean = " + imgMean);
         byte hi, lo;
-        if (img.mean() > 127) { // Arbitrary threshold
+        if (imgMean > 96) { // Arbitrary threshold
             // Most likely dark text on light background
             hi = (byte)255; 
             lo = (byte)0;
@@ -300,7 +303,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             lo = (byte)255;
         }
         GrayImage tmpImg = img.meanFilter(10);  // Temporarily store local means here
-        int threshOffset = (int)(0.5 * Math.sqrt(img.variance()));  // 0.5 pulled out of my butt
+        int threshOffset = (int)(0.33 * Math.sqrt(img.variance()));  // 0.33 pulled out of my butt
         GrayImage resultImg = img.adaptiveThreshold(hi, lo, threshOffset, tmpImg);
         
         // Dilate; it's grayscale, so we should use erosion instead
