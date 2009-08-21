@@ -2,20 +2,7 @@
 <!--  Manually derived from http://weocr.ocrgrid.org/cgi-bin/weocr/search.cgi?lang=eng&fmt=xml -->
 <weocrlist specversion="1.0"> 
   <server> 
-    <title>OCR server with Ocrad for Western European languages</title> 
-    <url>http://appsv.ocrgrid.org/ocrad/</url> 
-    <cgi>http://appsv.ocrgrid.org/cgi-bin/weocr/submit_ocrad.cgi</cgi> 
-    <specxml>http://appsv.ocrgrid.org/ocrad/srvspec.xml</specxml> 
-    <status>Latest</status> 
-    <mtime>1250210703</mtime> 
-    <mtimestr>14/Aug/2009:00:45:03</mtimestr> 
-    <engine>ocrad</engine> 
-    <organization>Tohoku Univ.</organization> 
-    <country>Japan</country> 
-    <langcodes>:afr:baq:cat:dan:dut:eng:fao:fin:fre:glg:ger:ice:gle:ita:nor:por:gla:spa:swe:alb:bre:est:fry:kal:lat:ltz:</langcodes> 
-  </server> 
-  <server> 
-    <title>OCR server with tesseract OCR for English</title> 
+    <title>Tesseract OCR for English</title> 
     <url>http://appsv.ocrgrid.org/tesseract/</url> 
     <cgi>http://appsv.ocrgrid.org/cgi-bin/weocr/submit_tesseract.cgi</cgi> 
     <specxml>http://appsv.ocrgrid.org/tesseract/srvspec.xml</specxml> 
@@ -28,7 +15,20 @@
     <langcodes>:eng:</langcodes> 
   </server> 
   <server> 
-    <title>OCR server with GOCR for Western European languages</title> 
+    <title>Ocrad for Western European languages</title> 
+    <url>http://appsv.ocrgrid.org/ocrad/</url> 
+    <cgi>http://appsv.ocrgrid.org/cgi-bin/weocr/submit_ocrad.cgi</cgi> 
+    <specxml>http://appsv.ocrgrid.org/ocrad/srvspec.xml</specxml> 
+    <status>Latest</status> 
+    <mtime>1250210703</mtime> 
+    <mtimestr>14/Aug/2009:00:45:03</mtimestr> 
+    <engine>ocrad</engine> 
+    <organization>Tohoku Univ.</organization> 
+    <country>Japan</country> 
+    <langcodes>:afr:baq:cat:dan:dut:eng:fao:fin:fre:glg:ger:ice:gle:ita:nor:por:gla:spa:swe:alb:bre:est:fry:kal:lat:ltz:</langcodes> 
+  </server> 
+  <server> 
+    <title>GOCR for Western European languages</title> 
     <url>http://ocr1.sc.isc.tohoku.ac.jp/e2/</url> 
     <cgi>http://ocr1.sc.isc.tohoku.ac.jp/cgi-bin/weocr/submit_e2.cgi</cgi> 
     <specxml>http://ocr1.sc.isc.tohoku.ac.jp/e2/srvspec.xml</specxml> 
@@ -41,7 +41,7 @@
     <langcodes>:afr:baq:cat:dan:dut:eng:fao:fin:fre:glg:ger:ice:gle:ita:nor:por:gla:spa:swe:alb:bre:est:fry:kal:lat:ltz:</langcodes> 
   </server> 
   <server> 
-    <title>OCR server with Ocrad for Western European languages</title> 
+    <title>Ocrad for Western European languages</title> 
     <url>http://asv.aso.ecei.tohoku.ac.jp/ocrad/</url> 
     <cgi>http://asv.aso.ecei.tohoku.ac.jp/cgi-bin/weocr/submit_ocrad.cgi</cgi> 
     <specxml>http://asv.aso.ecei.tohoku.ac.jp/ocrad/srvspec.xml</specxml> 
@@ -54,7 +54,7 @@
     <langcodes>:afr:baq:cat:dan:dut:eng:fao:fin:fre:glg:ger:ice:gle:ita:nor:por:gla:spa:swe:alb:bre:est:fry:kal:lat:ltz:</langcodes> 
   </server> 
   <server> 
-    <title>OCR server with Ocrad for Western European languages</title> 
+    <title>Ocrad for Western European languages</title> 
     <url>http://ocr1.sc.isc.tohoku.ac.jp/e1/</url> 
     <cgi>http://ocr1.sc.isc.tohoku.ac.jp/cgi-bin/weocr/submit_e1.cgi</cgi> 
     <specxml>http://ocr1.sc.isc.tohoku.ac.jp/e1/srvspec.xml</specxml> 
@@ -67,7 +67,7 @@
     <langcodes>:afr:baq:cat:dan:dut:eng:fao:fin:fre:glg:ger:ice:gle:ita:nor:por:gla:spa:swe:alb:bre:est:fry:kal:lat:ltz:</langcodes> 
   </server> 
   <server> 
-    <title>OCR server with tesseract OCR for English</title> 
+    <title>Tesseract OCR for English</title> 
     <url>http://asv.aso.ecei.tohoku.ac.jp/tesseract/</url> 
     <cgi>http://asv.aso.ecei.tohoku.ac.jp/cgi-bin/weocr/submit_tesseract.cgi</cgi> 
     <specxml>http://asv.aso.ecei.tohoku.ac.jp/tesseract/srvspec.xml</specxml> 

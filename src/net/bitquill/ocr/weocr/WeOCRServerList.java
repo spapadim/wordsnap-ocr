@@ -57,7 +57,7 @@ public class WeOCRServerList {
 
             Server srv = getItem(position);
             TextView titleText = (TextView)view.findViewById(R.id.server_description_text);
-            titleText.setText(srv.title + "(" + srv.engine.toUpperCase()  + ")");
+            titleText.setText(srv.title);
             TextView tagsText = (TextView)view.findViewById(R.id.server_url_text);
             tagsText.setText(srv.url);
             return view;
