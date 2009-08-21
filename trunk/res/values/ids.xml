@@ -3,5 +3,6 @@
 	<item type="id" name="msg_preview_frame" />
 	<item type="id" name="msg_text_bitmap" />
 	<item type="id" name="msg_ocr_result" />
+	<item type="id" name="msg_ocr_fail" />
 	<item type="id" name="msg_reset_status" />
 </resources>

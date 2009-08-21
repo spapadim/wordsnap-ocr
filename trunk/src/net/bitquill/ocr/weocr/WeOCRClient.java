@@ -69,6 +69,6 @@ public final class WeOCRClient {
             sb.append(line);
             sb.append('\n');
         }
-        return sb.toString();
+        return sb.toString().trim();
     }
 }

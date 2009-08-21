@@ -2,7 +2,7 @@
     android:layout_width="fill_parent" android:layout_height="wrap_content"
     android:paddingBottom="2dip" android:paddingTop="2dip"
     android:paddingLeft="4dip">
-    <TextView android:id="@+id/server_description_text" android:textAppearance="?android:attr/textAppearanceMedium"
+    <TextView android:id="@+id/server_description_text" android:textAppearance="?android:attr/textAppearanceMediumInverse"
         android:maxLines="1" android:layout_width="wrap_content" android:text="MAIN TITLE"
         android:layout_height="wrap_content" android:ellipsize="end"/>
     <TextView android:textAppearance="?android:attr/textAppearanceSmall"

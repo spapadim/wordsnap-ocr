@@ -391,6 +391,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                             } catch (IOException ioe) {
                                 // TODO
                                 Log.e(TAG, "WeOCR failed", ioe);
+                                mHandler.sendEmptyMessage(R.id.msg_ocr_fail);
                             }
                         }
                     }
@@ -411,6 +412,12 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 mProcessingInProgress = false;
                 mAutoFocusStatus = AUTOFOCUS_UNKNOWN;
                 mHandler.sendEmptyMessageDelayed(R.id.msg_reset_status, 2000L);
+                break;
+            case R.id.msg_ocr_fail:
+                mStatusText.setText(R.string.status_processing_error_text);
+                mProcessingInProgress = false;
+                mAutoFocusStatus = AUTOFOCUS_UNKNOWN;
+                //mHandler.sendEmptyMessageDelayed(R.id.msg_reset_status, 5000L);
                 break;
             case R.id.msg_reset_status:
                 //mResultText.setVisibility(View.INVISIBLE);
