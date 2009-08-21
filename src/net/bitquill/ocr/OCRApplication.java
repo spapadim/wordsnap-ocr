@@ -4,6 +4,7 @@ import net.bitquill.ocr.weocr.WeOCRClient;
 import net.bitquill.ocr.weocr.WeOCRServerList;
 import android.app.Application;
 import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.preference.PreferenceManager;
 
 public class OCRApplication extends Application {
@@ -52,7 +53,10 @@ public class OCRApplication extends Application {
                     getString(R.string.pref_weocr_server_default));
         } else {
             // Set preferred endpoint URL
-            //preferences.setString(OCRPreferences.PREF_WEOCR_ENDPOINT, endpointUrl);
+            Editor editor = preferences.edit();
+            editor.putString(OCRPreferences.PREF_WEOCR_ENDPOINT, endpointUrl);
+            editor.commit();
+            // XXX - check (the pref activity won't have a clue about the change??)
         }
         // Initialize new Delicious HTTP client
         mWeOCRClient = new WeOCRClient(endpointUrl);
