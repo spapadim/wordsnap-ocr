@@ -1,6 +1,7 @@
 package net.bitquill.ocr;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.graphics.Bitmap.CompressFormat;
@@ -11,11 +12,14 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.Toast;
+import android.widget.TextView;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,6 +31,8 @@ import net.bitquill.ocr.weocr.WeOCRClient;
 public class WordCaptureActivity extends Activity implements SurfaceHolder.Callback {
     private static final String TAG = WordCaptureActivity.class.getSimpleName();
     
+    private static final int MENU_SETTINGS_ID = Menu.FIRST;
+    
     private static int dumpCount = 1;  // FIXME temporary
     
     private SurfaceView mPreview;
@@ -35,6 +41,10 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private boolean mPreviewCaptureInProgress;
     private int mPreviewWidth, mPreviewHeight;
     private Camera mCamera;
+    private boolean mCameraPreviewing;
+    
+    private TextView mStatusText;
+    private TextView mResultText;
    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,6 +57,10 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     
         setContentView(R.layout.capture);
         mPreview = (SurfaceView)findViewById(R.id.capture_surface);
+        
+        mStatusText = (TextView)findViewById(R.id.status_text);
+        mResultText = (TextView)findViewById(R.id.result_text);
+        mResultText.setVisibility(View.INVISIBLE);
     }
     
     private void startCamera () {
@@ -55,8 +69,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             Log.d(TAG, "startCamera after pause");
             // Resumed after pause, surface already exists
             surfaceCreated(holder);
-            mCamera.startPreview();
-            requestAutoFocus(); // Start autofocusing
+            startCameraPreview();
         } else {
             Log.d(TAG, "startCamera from scratch");
             // Install a SurfaceHolder.Callback so we get notified when the
@@ -66,9 +79,24 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         }
     }
     
+    private void startCameraPreview () {
+        if (!mCameraPreviewing) {
+            mCamera.startPreview();
+            mCameraPreviewing = true;
+            requestAutoFocus();  // Do one autofocus
+        }
+    }
+    
+    private void stopCameraPreview () {
+        if (mCameraPreviewing) {
+            mCamera.stopPreview();
+            mCameraPreviewing = false;
+        }
+    }
+    
     private void stopCamera () {
         if (mCamera != null) {
-            mCamera.stopPreview();
+            stopCameraPreview();
             mCamera.release();
             mCamera = null;
         }
@@ -116,6 +144,14 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         super.onPause();
         stopCamera();
     }
+    
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+      super.onCreateOptionsMenu(menu);
+      menu.add(0, MENU_SETTINGS_ID, 0, R.string.menu_settings)
+          .setIcon(android.R.drawable.ic_menu_preferences);
+      return true;
+    }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -144,7 +180,15 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         }
     }
     
-    
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+        case MENU_SETTINGS_ID:
+            startActivity(new Intent(this, OCRPreferences.class));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
 
     public void surfaceCreated(SurfaceHolder holder) {
         // The Surface has been created, acquire the camera and tell it where
@@ -182,25 +226,23 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mPreviewWidth = sz.width;
         mPreviewHeight = sz.height;
 
-        // Start preview
-        mCamera.startPreview();
-        requestAutoFocus();
+        startCameraPreview();
         
         Log.d(TAG, "surfaceChanged: startPreview");
     }
     
-    private Handler mHandler = new Handler() {
+    private final Handler mHandler = new Handler () {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
             case R.id.msg_auto_focus:
-                boolean autoFocusSuccess = (msg.arg1 != 0) ? true : false;
+                //boolean autoFocusSuccess = (msg.arg1 != 0) ? true : false;
                 mAutoFocusInProgress = false;
                 break;
             case R.id.msg_preview_frame:
                 //mPreviewCaptureInProgress = false;
                 final byte[] yuv = (byte[])msg.obj;
-                Thread preprocessThread = new Thread() {
+                final Thread preprocessThread = new Thread() {
                     @Override
                     public void run() {
                         GrayImage img = new GrayImage(yuv, mPreviewWidth, mPreviewHeight);
@@ -232,21 +274,23 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                         mPreviewCaptureInProgress = false; // FIXME - move back up
                         
                         Message msg = mHandler.obtainMessage(R.id.msg_text_bitmap, textBitmap);
-                        mHandler.dispatchMessage(msg);
+                        mHandler.sendMessage(msg);
                     }
                 };
+                mStatusText.setText(R.string.status_preprocessing_text);
                 preprocessThread.start();
                 break;
             case R.id.msg_text_bitmap:
                 final Bitmap textBitmap = (Bitmap)msg.obj;
-                Thread ocrThread = new Thread() {
+                final WeOCRClient weOCRClient = OCRApplication.getOCRClient();
+                final Thread ocrThread = new Thread() {
                     @Override
                     public void run () {
-                        synchronized (sWeOCRClient) {
+                        synchronized (weOCRClient) {
                             try {
-                                String ocrText = sWeOCRClient.doOCR(textBitmap);
+                                String ocrText = weOCRClient.doOCR(textBitmap);
                                 Message msg = mHandler.obtainMessage(R.id.msg_ocr_result, ocrText);
-                                mHandler.dispatchMessage(msg);
+                                mHandler.sendMessage(msg);
                             } catch (IOException ioe) {
                                 // TODO
                                 Log.e(TAG, "WeOCR failed", ioe);
@@ -254,6 +298,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                         }
                     }
                 };
+                mStatusText.setText(R.string.status_processing_text);
                 ocrThread.start();
                 break;
             case R.id.msg_ocr_result:
@@ -262,7 +307,14 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 // Toast fails from this thread
                 //Toast.makeText(WordCaptureActivity.this, "OCR result: " + ocrText, Toast.LENGTH_LONG)
                 //     .show();
-                // TODO
+                mStatusText.setText(R.string.status_finished_text);
+                mResultText.setText(ocrText);
+                mResultText.setVisibility(View.VISIBLE);
+                mHandler.sendEmptyMessageDelayed(R.id.msg_reset_status, 2000L);
+                break;
+            case R.id.msg_reset_status:
+                //mResultText.setVisibility(View.INVISIBLE);
+                mStatusText.setText(R.string.status_guide_text);
                 break;
             default:
                 super.handleMessage(msg);
@@ -281,8 +333,6 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         return new Rect(centerY - halfWidth, centerX - halfHeight, 
                     centerY + halfWidth, centerX + halfHeight);
     }
-    
-    private static final WeOCRClient sWeOCRClient = new WeOCRClient("http://appsv.ocrgrid.org/cgi-bin/weocr/submit_ocrad.cgi"); // FIXME temporary
     
     private static final SimpleStructuringElement sHStrel = SimpleStructuringElement.makeHorizontal(2);
     private static final SimpleStructuringElement sVStrel = SimpleStructuringElement.makeVertical(2);

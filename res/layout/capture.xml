@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-	android:layout_width="fill_parent"
-	android:layout_height="fill_parent">
+	android:layout_width="fill_parent" android:layout_height="fill_parent">
 
-    <SurfaceView android:layout_width="fill_parent" android:id="@+id/capture_surface" android:layout_height="fill_parent"/>
-    <net.bitquill.ocr.WordGuideView android:layout_width="fill_parent" android:layout_height="fill_parent"/>
-    <TextView android:text="@string/guide_text" android:layout_height="wrap_content" android:layout_gravity="bottom|center" android:layout_width="wrap_content" android:layout_marginBottom="5dip"/>
+	<SurfaceView android:layout_width="fill_parent" android:id="@+id/capture_surface"
+		android:layout_height="fill_parent" />
+	<net.bitquill.ocr.WordGuideView
+		android:layout_width="fill_parent" android:layout_height="fill_parent" />
+	<TextView android:text="@string/status_guide_text" android:id="@+id/status_text"
+		android:layout_height="wrap_content" android:layout_gravity="bottom|center"
+		android:layout_width="wrap_content" android:layout_marginBottom="5dip" android:textSize="18sp"/>
+    <TextView android:text="OCR" android:id="@+id/result_text"
+        android:layout_height="wrap_content" android:layout_gravity="top|center"
+        android:layout_width="wrap_content" android:layout_marginTop="5dip" android:textSize="28sp" android:visibility="invisible"/>
 
 </FrameLayout>
