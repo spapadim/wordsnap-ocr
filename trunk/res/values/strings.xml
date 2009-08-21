@@ -14,7 +14,10 @@
 	<string name="pref_web_ocr_category">OCR service settings</string>
 	<string name="pref_weocr_server">WeOCR Server</string>
 	<string name="pref_weocr_server_summary">WeOCR server URL</string>
+<!--
 	<string name="pref_weocr_server_default">http://appsv.ocrgrid.org/cgi-bin/weocr/submit_ocrad.cgi</string>
+-->
+    <string name="pref_weocr_server_default">http://appsv.ocrgrid.org/cgi-bin/weocr/submit_tesseract.cgi</string>
 	<string name="pref_advanced_category">Advanced settings</string>
 	<string name="pref_debug_dump">Dump image data</string>
 	<string name="pref_debug_dump_summary">Log captured images for debugging</string>

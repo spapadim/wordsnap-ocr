@@ -1,29 +1,34 @@
 package net.bitquill.ocr;
 
 import android.app.Activity;
+import android.app.SearchManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
-import android.graphics.Bitmap.CompressFormat;
 import android.hardware.Camera;
 import android.hardware.Camera.Size;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.preference.PreferenceManager;
+import android.text.ClipboardManager;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 
 import net.bitquill.ocr.image.GrayImage;
@@ -32,6 +37,8 @@ import net.bitquill.ocr.weocr.WeOCRClient;
 
 public class WordCaptureActivity extends Activity implements SurfaceHolder.Callback {
     private static final String TAG = WordCaptureActivity.class.getSimpleName();
+    
+    private static final int TOUCH_BORDER = 20;  // How many pixels to ignore around edges
     
     private static final int MENU_SETTINGS_ID = Menu.FIRST;
         
@@ -46,6 +53,13 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private TextView mStatusText;
     private TextView mResultText;
     
+    private LinearLayout mButtonGroup;
+    private Button mWebSearchButton;
+    private Button mDictionaryButton;
+    private Button mClipboardButton;
+    
+    private ClipboardManager mClipboardManager;
+    
     private boolean mEnableDump;
    
     @Override
@@ -58,11 +72,69 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         requestWindowFeature(Window.FEATURE_NO_TITLE);      
     
         setContentView(R.layout.capture);
+        
+        mClipboardManager = (ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
+        
         mPreview = (SurfaceView)findViewById(R.id.capture_surface);
+        
+        mPreview.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                float x = event.getX();
+                float y = event.getY();
+                if (event.getEdgeFlags() == 0 &&
+                        x > TOUCH_BORDER && y > TOUCH_BORDER &&
+                        x < mPreviewWidth - TOUCH_BORDER &&
+                        y < mPreviewHeight - TOUCH_BORDER) {
+                    int action = event.getAction();
+                    if (action == MotionEvent.ACTION_DOWN && 
+                            action == MotionEvent.ACTION_MOVE) {
+                        requestAutoFocus();  // FIXME check usability
+                    } else if (action == MotionEvent.ACTION_UP) {
+                        requestPreviewFrame();
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
         
         mStatusText = (TextView)findViewById(R.id.status_text);
         mResultText = (TextView)findViewById(R.id.result_text);
         mResultText.setVisibility(View.INVISIBLE);
+        
+        mButtonGroup = (LinearLayout)findViewById(R.id.button_group);
+        mWebSearchButton = (Button)findViewById(R.id.web_search_button);
+        mDictionaryButton = (Button)findViewById(R.id.dictionary_button);
+        mClipboardButton = (Button)findViewById(R.id.clipboard_button);
+        mButtonGroup.setVisibility(View.GONE);
+        mWebSearchButton.setOnClickListener(new View.OnClickListener () {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Intent.ACTION_WEB_SEARCH);
+                intent.putExtra(SearchManager.QUERY, mResultText.getText());
+                startActivity(intent);
+                finish();
+            }
+        });
+        mDictionaryButton.setOnClickListener(new View.OnClickListener () {
+            @Override
+            public void onClick(View v) {
+                Uri url = Uri.fromParts("http", 
+                        "http://en.m.wikipedia.org/wiki?search=" + mResultText.getText(), 
+                        null);
+                Intent intent = new Intent(Intent.ACTION_VIEW, url);
+                startActivity(intent);
+                finish();
+            }
+        });
+        mClipboardButton.setOnClickListener(new View.OnClickListener () {
+            @Override
+            public void onClick(View v) {
+                mClipboardManager.setText(mResultText.getText());
+                finish();
+            }
+        });
     }
     
     private void loadPreferences () {
@@ -169,6 +241,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_FOCUS) {
             if (event.getRepeatCount() == 0) {
+                mButtonGroup.setVisibility(View.GONE);
                 requestAutoFocus();
             }
             return true;
@@ -179,16 +252,6 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             return true;
         } else {
             return super.onKeyDown(keyCode, event);
-        }
-    }
-
-    @Override
-    public boolean onKeyUp(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_FOCUS) {
-            requestAutoFocus();
-            return true;
-        } else {
-            return super.onKeyUp(keyCode, event);
         }
     }
     
@@ -261,8 +324,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                         long startTime = System.currentTimeMillis();
                         Rect ext = makeTargetRect();
                         GrayImage binImg = findWordExtent(img, ext);
-                        Log.i(TAG, "Find word extent in " + (System.currentTimeMillis() - startTime) + " msec");
-                        Log.i(TAG, "Extent is " + ext.top + "," + ext.left + "," + ext.bottom + "," + ext.right);
+                        Log.d(TAG, "Find word extent in " + (System.currentTimeMillis() - startTime) + " msec");
+                        Log.d(TAG, "Extent is " + ext.top + "," + ext.left + "," + ext.bottom + "," + ext.right);
 
                         if (mEnableDump) {
                             FileDumpUtil.dump("bin", binImg);
@@ -270,7 +333,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
 
                         startTime = System.currentTimeMillis();
                         Bitmap textBitmap = binImg.asBitmap(ext);
-                        Log.i(TAG, "Converted to Bitmap in " + (System.currentTimeMillis() - startTime) + " msec");
+                        Log.d(TAG, "Converted to Bitmap in " + (System.currentTimeMillis() - startTime) + " msec");
                         
                         if (mEnableDump) {
                             FileDumpUtil.dump("word", textBitmap);
@@ -282,6 +345,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                         mHandler.sendMessage(msg);
                     }
                 };
+                mButtonGroup.setVisibility(View.GONE);
+                mResultText.setVisibility(View.INVISIBLE);
                 mStatusText.setText(R.string.status_preprocessing_text);
                 preprocessThread.start();
                 break;
@@ -315,6 +380,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 mStatusText.setText(R.string.status_finished_text);
                 mResultText.setText(ocrText);
                 mResultText.setVisibility(View.VISIBLE);
+                mButtonGroup.setVisibility(View.VISIBLE);
                 mHandler.sendEmptyMessageDelayed(R.id.msg_reset_status, 2000L);
                 break;
             case R.id.msg_reset_status:
@@ -346,7 +412,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private static final GrayImage findWordExtent (GrayImage img, Rect ext) {
         // Adaptive threshold
         float imgMean = img.mean();
-        Log.i(TAG, "Image mean = " + imgMean);
+        Log.d(TAG, "Image mean = " + imgMean);
         byte hi, lo;
         if (imgMean > 96) { // Arbitrary threshold
             // Most likely dark text on light background
