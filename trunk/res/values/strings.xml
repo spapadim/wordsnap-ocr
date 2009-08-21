@@ -1,6 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+	<string name="app_name">WordSnap</string>
+	<string name="app_description">Use camera to recognize words</string>
+
+	<string name="status_guide_text">Place word inside finder and tap screen</string>
+    <string name="status_preprocessing_text">Extracting word from image</string>
+    <string name="status_preprocessing_error_text">Failed to find word; please try again</string>
+    <string name="status_processing_text">Contacting server for recognition</string>
+    <string name="status_processing_error_text">Server error; please try again</string>
+    <string name="status_finished_text">Recognition complete</string>
+
+	<string name="pref_web_ocr_category">OCR service settings</string>
+	<string name="pref_weocr_server">WeOCR Server</string>
+	<string name="pref_weocr_server_summary">WeOCR server URL</string>
+	<string name="pref_weocr_server_default">http://appsv.ocrgrid.org/cgi-bin/weocr/submit_ocrad.cgi</string>
+	<string name="pref_advanced_category">Advanced settings</string>
+
+    <string name="servers_dialog_title">Choose WeOCR server</string>
     
-    <string name="app_name">WordSnap</string>
-<string name="guide_text">Place word approximately inside finder and tap on the screen</string>
+    <string name="close_button">Close</string>
+
+	<string name="menu_settings">Settings</string>
+
 </resources>

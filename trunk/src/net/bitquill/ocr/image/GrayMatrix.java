@@ -1,9 +1,8 @@
 package net.bitquill.ocr.image;
 
-import android.util.Log;
-
 public class GrayMatrix {
 
+    @SuppressWarnings("unused")
     private static final String TAG = "GrayMatrix";
 
     protected byte[] mData;

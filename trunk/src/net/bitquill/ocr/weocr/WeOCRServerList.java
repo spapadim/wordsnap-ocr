@@ -3,15 +3,67 @@ package net.bitquill.ocr.weocr;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import net.bitquill.ocr.R;
+
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import android.content.Context;
 import android.content.res.XmlResourceParser;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
+import android.widget.ListAdapter;
+import android.widget.TextView;
 
 public class WeOCRServerList {
     
     private ArrayList<Server> mServerList;
+    
+    private static class ServerListAdapter extends BaseAdapter {
+        
+        private ArrayList<Server> mServerList;
+        private LayoutInflater mInflater;
+        
+        private ServerListAdapter (Context context, ArrayList<Server> serverList) {
+            mServerList = serverList;
+            mInflater = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        }
+
+        @Override
+        public int getCount() {
+            return mServerList.size();
+        }
+
+        @Override
+        public Server getItem(int position) {
+            return mServerList.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            View view;
+            if (convertView == null) {
+                view = mInflater.inflate(R.layout.server_list_item, parent, false);
+            } else {
+                view = convertView;
+            }
+
+            Server srv = getItem(position);
+            TextView titleText = (TextView)view.findViewById(R.id.server_description_text);
+            titleText.setText(srv.title + "(" + srv.engine.toUpperCase()  + ")");
+            TextView tagsText = (TextView)view.findViewById(R.id.server_url_text);
+            tagsText.setText(srv.url);
+            return view;
+        }
+
+    }
     
     public static class Server {
         public String title;
@@ -92,5 +144,13 @@ public class WeOCRServerList {
             }
         }
         parser.close();
+    }
+    
+    protected ArrayList<Server> getServerList () {
+        return mServerList;
+    }
+    
+    public ListAdapter getServerListAdapter (Context context) {
+        return new ServerListAdapter(context, mServerList);
     }
 }

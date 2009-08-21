@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+	<PreferenceCategory android:title="@string/pref_web_ocr_category">
+		<Preference android:key="weocr_endpoint_url" android:title="@string/pref_weocr_server"
+			android:summary="@string/pref_weocr_server_summary" />
+	</PreferenceCategory>
+</PreferenceScreen>
