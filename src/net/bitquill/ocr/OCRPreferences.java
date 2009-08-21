@@ -13,6 +13,7 @@ public class OCRPreferences extends PreferenceActivity
 implements Preference.OnPreferenceChangeListener, Preference.OnPreferenceClickListener {
     
     public static final String PREF_WEOCR_ENDPOINT = "weocr_endpoint_url";
+    public static final String PREF_DEBUG_DUMP = "enable_debug_dump";
     
     private static final int ID_WEOCR_SERVERS_DIALOG = 1;
 

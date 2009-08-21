@@ -2,6 +2,7 @@ package net.bitquill.ocr;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.graphics.Bitmap.CompressFormat;
@@ -10,6 +11,7 @@ import android.hardware.Camera.Size;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -32,9 +34,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private static final String TAG = WordCaptureActivity.class.getSimpleName();
     
     private static final int MENU_SETTINGS_ID = Menu.FIRST;
-    
-    private static int dumpCount = 1;  // FIXME temporary
-    
+        
     private SurfaceView mPreview;
     private boolean mHasSurface;
     private boolean mAutoFocusInProgress;
@@ -45,6 +45,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     
     private TextView mStatusText;
     private TextView mResultText;
+    
+    private boolean mEnableDump;
    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +63,15 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mStatusText = (TextView)findViewById(R.id.status_text);
         mResultText = (TextView)findViewById(R.id.result_text);
         mResultText.setVisibility(View.INVISIBLE);
+    }
+    
+    private void loadPreferences () {
+        SharedPreferences preferences = 
+            PreferenceManager.getDefaultSharedPreferences(this);
+        mEnableDump = preferences.getBoolean(OCRPreferences.PREF_DEBUG_DUMP, false);
+        if (mEnableDump) {
+            FileDumpUtil.init();
+        }
     }
     
     private void startCamera () {
@@ -134,6 +145,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     @Override
     protected void onResume() {
         Log.d(TAG, "onResume");
+        loadPreferences();
         super.onResume();
         startCamera();
     }
@@ -249,27 +261,20 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                         long startTime = System.currentTimeMillis();
                         Rect ext = makeTargetRect();
                         GrayImage binImg = findWordExtent(img, ext);
-                        Log.i(TAG, "Find word extent in " + (System.currentTimeMillis() - startTime) + "msec");
+                        Log.i(TAG, "Find word extent in " + (System.currentTimeMillis() - startTime) + " msec");
                         Log.i(TAG, "Extent is " + ext.top + "," + ext.left + "," + ext.bottom + "," + ext.right);
 
-                        try {
-                            // Temporary
-                            FileOutputStream os = new FileOutputStream("/sdcard/bin_dump" + dumpCount + ".gray");
-                            os.write(binImg.getData());
-                            os.close();
-                        } catch (IOException ioe) { }
+                        if (mEnableDump) {
+                            FileDumpUtil.dump("bin", binImg);
+                        }
 
                         startTime = System.currentTimeMillis();
                         Bitmap textBitmap = binImg.asBitmap(ext);
-                        try {
-                            // Temporary
-                            FileOutputStream os = new FileOutputStream("/sdcard/word_dump" + dumpCount + ".png");
-                            textBitmap.compress(CompressFormat.PNG, 80, os);
-                            os.close();
-                        } catch (IOException ioe) { }
-                        Log.i(TAG, "Dump in " + (System.currentTimeMillis() - startTime) + "msec");
+                        Log.i(TAG, "Converted to Bitmap in " + (System.currentTimeMillis() - startTime) + " msec");
                         
-                        ++dumpCount;
+                        if (mEnableDump) {
+                            FileDumpUtil.dump("word", textBitmap);
+                        }
 
                         mPreviewCaptureInProgress = false; // FIXME - move back up
                         

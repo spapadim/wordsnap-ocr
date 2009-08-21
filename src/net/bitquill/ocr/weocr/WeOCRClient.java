@@ -37,6 +37,7 @@ public final class WeOCRClient {
     }
     
     public String doOCR (Bitmap img) throws IOException {
+        Log.i(TAG, "Sending OCR request to " + mEndpoint);
         HttpPost post = new HttpPost(mEndpoint);
         post.setEntity(new WeOCRFormEntity(img));
 
