@@ -39,16 +39,25 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private static final String TAG = WordCaptureActivity.class.getSimpleName();
     
     private static final int TOUCH_BORDER = 20;  // How many pixels to ignore around edges
+    private static final long AUTOFOCUS_MAX_WAIT_TIME = 2000L;  // How long to wait for touch-triggered AF to succeed
     
     private static final int MENU_SETTINGS_ID = Menu.FIRST;
+    private static final int MENU_ABOUT_ID = Menu.FIRST + 1;
         
     private SurfaceView mPreview;
     private boolean mHasSurface;
-    private boolean mAutoFocusInProgress;
-    private boolean mPreviewCaptureInProgress;
     private int mPreviewWidth, mPreviewHeight;
     private Camera mCamera;
     private boolean mCameraPreviewing;
+
+    private boolean mAutoFocusInProgress;
+    private boolean mPreviewCaptureInProgress;
+    private boolean mProcessingInProgress;
+
+    private static final int AUTOFOCUS_UNKNOWN = 0;
+    private static final int AUTOFOCUS_SUCCESS = 1;
+    private static final int AUTOFOCUS_FAILURE = 2;
+    private int mAutoFocusStatus;
     
     private TextView mStatusText;
     private TextView mResultText;
@@ -82,16 +91,21 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             public boolean onTouch(View v, MotionEvent event) {
                 float x = event.getX();
                 float y = event.getY();
+                //int action = event.getAction();
+                
                 if (event.getEdgeFlags() == 0 &&
                         x > TOUCH_BORDER && y > TOUCH_BORDER &&
                         x < mPreviewWidth - TOUCH_BORDER &&
                         y < mPreviewHeight - TOUCH_BORDER) {
-                    int action = event.getAction();
-                    if (action == MotionEvent.ACTION_DOWN && 
-                            action == MotionEvent.ACTION_MOVE) {
-                        requestAutoFocus();  // FIXME check usability
-                    } else if (action == MotionEvent.ACTION_UP) {
+                    long timeSinceDown = event.getEventTime() - event.getDownTime();
+                    if (mAutoFocusInProgress || mProcessingInProgress) {
+                        return false;
+                    }
+                    if (mAutoFocusStatus == AUTOFOCUS_SUCCESS || timeSinceDown > AUTOFOCUS_MAX_WAIT_TIME) {
+                        mButtonGroup.setVisibility(View.GONE);
                         requestPreviewFrame();
+                    } else {
+                        requestAutoFocus();
                     }
                     return true;
                 }
@@ -120,9 +134,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mDictionaryButton.setOnClickListener(new View.OnClickListener () {
             @Override
             public void onClick(View v) {
-                Uri url = Uri.fromParts("http", 
-                        "http://en.m.wikipedia.org/wiki?search=" + mResultText.getText(), 
-                        null);
+                Uri url = Uri.parse("http://en.m.wikipedia.org/wiki?search=" + mResultText.getText());
                 Intent intent = new Intent(Intent.ACTION_VIEW, url);
                 startActivity(intent);
                 finish();
@@ -166,7 +178,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         if (!mCameraPreviewing) {
             mCamera.startPreview();
             mCameraPreviewing = true;
-            requestAutoFocus();  // Do one autofocus
+            //requestAutoFocus();  // Do one autofocus
         }
     }
     
@@ -189,12 +201,13 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         if (mAutoFocusInProgress) {
             return;
         }
+        mAutoFocusStatus = AUTOFOCUS_UNKNOWN;
         mAutoFocusInProgress = true;
         mCamera.autoFocus(new Camera.AutoFocusCallback() { 
             @Override
             public void onAutoFocus(boolean success, Camera camera) {
                 Message msg = mHandler.obtainMessage(R.id.msg_auto_focus, 
-                        success ? 1 : 0, -1);
+                        success ? 1 : AUTOFOCUS_SUCCESS, AUTOFOCUS_FAILURE);
                 mHandler.sendMessage(msg);
             }
         });
@@ -214,10 +227,18 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         });
     }
     
+    private void initStateVariables () {
+        mAutoFocusStatus = AUTOFOCUS_UNKNOWN;
+        mAutoFocusInProgress = false;
+        mPreviewCaptureInProgress = false;
+        mProcessingInProgress = false;
+    }
+    
     @Override
     protected void onResume() {
         Log.d(TAG, "onResume");
         loadPreferences();
+        initStateVariables();
         super.onResume();
         startCamera();
     }
@@ -234,6 +255,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
       super.onCreateOptionsMenu(menu);
       menu.add(0, MENU_SETTINGS_ID, 0, R.string.menu_settings)
           .setIcon(android.R.drawable.ic_menu_preferences);
+      menu.add(0, MENU_ABOUT_ID, 0, R.string.menu_about)
+          .setIcon(android.R.drawable.ic_menu_info_details);
       return true;
     }
 
@@ -260,6 +283,9 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         switch (item.getItemId()) {
         case MENU_SETTINGS_ID:
             startActivity(new Intent(this, OCRPreferences.class));
+            return true;
+        case MENU_ABOUT_ID:
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.about_url))));
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -311,7 +337,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         public void handleMessage(Message msg) {
             switch (msg.what) {
             case R.id.msg_auto_focus:
-                //boolean autoFocusSuccess = (msg.arg1 != 0) ? true : false;
+                mAutoFocusStatus = msg.arg1;
                 mAutoFocusInProgress = false;
                 break;
             case R.id.msg_preview_frame:
@@ -348,6 +374,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 mButtonGroup.setVisibility(View.GONE);
                 mResultText.setVisibility(View.INVISIBLE);
                 mStatusText.setText(R.string.status_preprocessing_text);
+                mProcessingInProgress = true;
                 preprocessThread.start();
                 break;
             case R.id.msg_text_bitmap:
@@ -381,6 +408,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 mResultText.setText(ocrText);
                 mResultText.setVisibility(View.VISIBLE);
                 mButtonGroup.setVisibility(View.VISIBLE);
+                mProcessingInProgress = false;
+                mAutoFocusStatus = AUTOFOCUS_UNKNOWN;
                 mHandler.sendEmptyMessageDelayed(R.id.msg_reset_status, 2000L);
                 break;
             case R.id.msg_reset_status:

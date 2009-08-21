@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-	<string name="app_name">WordSnap</string>
+	<string name="app_name">WordSnap OCR</string>
 	<string name="app_description">Use camera to recognize words</string>
+	<string name="activity_word_capture">WordSnap</string>
+	
+	<string name="about_url">http://www.bitquill.net/trac/wiki/Android/OCR</string>
 
 	<string name="status_guide_text">Place word inside finder and tap screen</string>
     <string name="status_preprocessing_text">Extracting word from image</string>
@@ -27,5 +30,6 @@
     <string name="close_button">Close</string>
 
 	<string name="menu_settings">Settings</string>
+	<string name="menu_about">About</string>
 
 </resources>
