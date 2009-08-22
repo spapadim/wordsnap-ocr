@@ -73,6 +73,14 @@ JNIEXPORT void JNICALL Java_net_bitquill_ocr_image_GrayImage_nativeAdaptiveThres
 
 /*
  * Class:     net_bitquill_ocr_image_GrayImage
+ * Method:    nativeContrastStretch
+ * Signature: ([B[BIIBB)V
+ */
+JNIEXPORT void JNICALL Java_net_bitquill_ocr_image_GrayImage_nativeContrastStretch
+  (JNIEnv *, jclass, jbyteArray, jbyteArray, jint, jint, jbyte, jbyte);
+
+/*
+ * Class:     net_bitquill_ocr_image_GrayImage
  * Method:    nativeErode
  * Signature: ([B[BIII[I[I[IIIII)V
  */

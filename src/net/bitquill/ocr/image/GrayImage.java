@@ -173,6 +173,20 @@ public class GrayImage extends GrayMatrix {
         return adaptiveThreshold(hi, lo, offset, thresh, new GrayImage(mWidth, mHeight));
     }
     
+    final public GrayImage contrastStretch (byte min, byte max, GrayImage dest) {
+        int width = mWidth;
+        int height = mHeight;
+        if (dest.mWidth != width || dest.mHeight != height) {
+            throw new IllegalArgumentException("Destination image size must match");            
+        }
+        GrayImage.nativeContrastStretch(mData, dest.mData, width, height, min, max);
+        return dest;
+    }
+    
+    final public GrayImage contrastStretch (byte min, byte max) {
+        return contrastStretch(min, max, new GrayImage(mWidth, mHeight));
+    }
+    
     final public Bitmap asBitmap (int left, int top, int width, int height, int[] buf) {
         if (buf == null) {
             throw new NullPointerException("Buffer is null");
@@ -222,6 +236,7 @@ public class GrayImage extends GrayMatrix {
     native private static void nativeMeanFilter (byte[] in, byte[] out, int width, int height, int radius);
     
     native private static void nativeAdaptiveThreshold (byte[] in, byte[] thresh, byte[] out, int width, int heigth, byte hi, byte lo, int offset);
+    native private static void nativeContrastStretch (byte[] in, byte[] out, int width, int height, byte min, byte max);
     
     native private static void nativeGrayToARGB (byte[] in, int imgWidth, int imgHeight, int[] out, int left, int top, int width, int height);
     

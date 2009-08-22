@@ -464,11 +464,21 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     
     // FIXME make this return extracted Bitmap
     private static final GrayImage findWordExtent (GrayImage img, Rect ext) {
+        
+        FileDumpUtil.dump("in", img);  // XXX tmp
+        
+        // Contrast stretch
+        int imgMin = img.min(), imgMax = img.max();
+        Log.d(TAG, "Image min = " + imgMin + ", max = " + imgMax);
+        GrayImage resultImg = img.contrastStretch((byte)imgMin, (byte)imgMax); // Temporarily store stretched image here
+
+        FileDumpUtil.dump("stretch", resultImg);  // XXX tmp
+
         // Adaptive threshold
-        float imgMean = img.mean();
-        Log.d(TAG, "Image mean = " + imgMean);
+        float imgMean = resultImg.mean();
+        Log.d(TAG, "Stretched image mean = " + imgMean);
         byte hi, lo;
-        if (imgMean > 96) { // Arbitrary threshold
+        if (imgMean > 127) { // XXX Arbitrary threshold
             // Most likely dark text on light background
             hi = (byte)255; 
             lo = (byte)0;
@@ -477,13 +487,18 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             hi = (byte)0;
             lo = (byte)255;
         }
-        GrayImage tmpImg = img.meanFilter(10);  // Temporarily store local means here
-        int threshOffset = (int)(0.33 * Math.sqrt(img.variance()));  // 0.33 pulled out of my butt
-        GrayImage resultImg = img.adaptiveThreshold(hi, lo, threshOffset, tmpImg);
-        
+        GrayImage tmpImg = resultImg.meanFilter(10);  // Temporarily store local means here
+        int threshOffset = (int)(0.33 * Math.sqrt(resultImg.variance()));  // 0.33 pulled out of my butt
+        resultImg.adaptiveThreshold(hi, lo, threshOffset, tmpImg, resultImg);
+
+        FileDumpUtil.dump("mean", tmpImg);  // XXX tmp
+        FileDumpUtil.dump("bin", resultImg);  // XXX tmp
+
         // Dilate; it's grayscale, so we should use erosion instead
         resultImg.erode(sHStrel, tmpImg);
         GrayImage binImg = tmpImg.erode(sVStrel);
+
+        FileDumpUtil.dump("strop", binImg);  // XXX tmp
 
         // Find word extents
         int left = ext.left, right = ext.right, top = ext.top, bottom = ext.bottom;
