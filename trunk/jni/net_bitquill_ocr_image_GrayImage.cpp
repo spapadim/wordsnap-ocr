@@ -366,44 +366,123 @@ void Java_net_bitquill_ocr_image_GrayImage_nativeGrayToARGB
     env->ReleaseIntArrayElements(jout, (jint *)out, 0);
 }
 
+static bool validateMapParameters
+  (JNIEnv *env, jbyteArray jin, jbyteArray jout,
+          jint imgWidth, jint imgHeight)
+{
+    if (imgWidth < 0 || imgHeight < 0) {
+        throwException(env, "java/lang/IllegalArgumentException", "Image width and height must be non-negative");
+        return false;
+    }
+    if (env->GetArrayLength(jin) < imgWidth * imgHeight) {
+        throwException(env, "java/lang/IllegalArgumentException", "Input array too short");
+        return false;
+    }
+    if (env->GetArrayLength(jout) < imgWidth * imgHeight) {
+        throwException(env, "java/lang/IllegalArgumentException", "Output array too short");
+        return false;
+    }
+    return true;
+}
+
+template <class Mapper>
+static inline void matrixMap
+  (unsigned char *in, unsigned char *out,
+          int imgWidth, int imgHeight,
+          Mapper mapper)
+{
+    // Parameters are assumed to be validated by validateMapParameters
+    for (int i = 0;  i < imgHeight;  i++) {
+        for (int j = 0;  j < imgWidth;  j++) {
+            unsigned char val = getPixel(in, imgWidth, i, j);
+            setPixel(out, imgWidth, i, j, mapper(i, j, val));
+        }
+    }
+}
+
+struct ThresholdMapper {
+    unsigned char hi, lo;
+    int offset;
+    int imgWidth;
+    unsigned char *thresh;
+    ThresholdMapper (unsigned char hi, unsigned char lo, int offset,
+            int imgWidth, unsigned char *thresh)
+        : hi(hi), lo(lo), offset(offset), imgWidth(imgWidth), thresh(thresh) { }
+    inline unsigned char operator () (int i, int j, unsigned char val) {
+        int thr = getPixel(thresh, imgWidth, i, j);
+        return (thr - ((int)val) < offset) ? hi : lo;
+    }
+};
+
 void Java_net_bitquill_ocr_image_GrayImage_nativeAdaptiveThreshold
   (JNIEnv *env, jclass cls,
     jbyteArray jin, jbyteArray jthresh, jbyteArray jout,
     jint width, jint height, jbyte hi, jbyte lo, jint offset)
 {
-    // Check parameters
-    if (env->GetArrayLength(jin) < width * height) {
-        throwException(env, "java/lang/IllegalArgumentException", "Input array too short");
+    // Check general parameters
+    if (!validateMapParameters(env, jin, jout, width, height)) {
         return;
     }
+    // Check thresholding-specific parameters
     if (env->GetArrayLength(jthresh) < width * height) {
         throwException(env, "java/lang/IllegalArgumentException", "Threshold array too short");
         return;
     }
-    if (env->GetArrayLength(jout) < width * height) {
-        throwException(env, "java/lang/IllegalArgumentException", "Output array too short");
-        return;
-    }
-    if (width < 0 || height < 0) {
-         throwException(env, "java/lang/IllegalArgumentException", "Width and height must be non-negative");
-         return;
-     }
 
     unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
     unsigned char *thresh = (unsigned char *) env->GetByteArrayElements(jthresh, 0);
     unsigned char *out = (unsigned char *) env->GetByteArrayElements(jout, 0);
 
-    for (int i = 0;  i < height;  i++) {
-        for (int j = 0;  j < width;  j++) {
-            // Use signed ints; chars and/or unsigned may overflow
-            int val = getPixel(in, width, i, j);
-            int thr = getPixel(thresh, width, i, j);
-            setPixel(out, width, i, j, (thr - val < offset) ? (unsigned char)hi : (unsigned char)lo);
-        }
-    }
+    ThresholdMapper mapper(hi, lo, offset, width, thresh);
+    matrixMap(in, out, width, height, mapper);
+
+//    for (int i = 0;  i < height;  i++) {
+//        for (int j = 0;  j < width;  j++) {
+//            // Use signed ints; chars and/or unsigned may overflow
+//            int val = getPixel(in, width, i, j);
+//            int thr = getPixel(thresh, width, i, j);
+//            setPixel(out, width, i, j, (thr - val < offset) ? (unsigned char)hi : (unsigned char)lo);
+//        }
+//    }
 
     env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
     env->ReleaseByteArrayElements(jthresh, (jbyte *)thresh, 0);
+    env->ReleaseByteArrayElements(jout, (jbyte *)out, 0);
+}
+
+struct ContrastMapper {
+    unsigned char mn, mx;
+    unsigned int range;
+    ContrastMapper (unsigned char mn, unsigned char mx)
+        : mn(mn), mx(mx), range(mx - mn) { }
+    inline unsigned char operator () (int i, int j, unsigned char val) {
+        if (val <= mn) {
+            return 0;
+        } else if (val >= mx) {
+            return 255;
+        } else {
+            return (unsigned char)(((int)(val - mn)) * 255 / range); // XXX paren galore!
+        }
+    }
+};
+
+void Java_net_bitquill_ocr_image_GrayImage_nativeContrastStretch
+  (JNIEnv *env, jclass cls,
+    jbyteArray jin, jbyteArray jout,
+    jint width, jint height, jbyte mn, jbyte mx)
+{
+    // Check general parameters
+    if (!validateMapParameters(env, jin, jout, width, height)) {
+        return;
+    }
+
+    unsigned char *in = (unsigned char *) env->GetByteArrayElements(jin, 0);
+    unsigned char *out = (unsigned char *) env->GetByteArrayElements(jout, 0);
+
+    ContrastMapper mapper((unsigned char)mn, (unsigned char)mx);
+    matrixMap(in, out, width, height, mapper);
+
+    env->ReleaseByteArrayElements(jin, (jbyte *)in, 0);
     env->ReleaseByteArrayElements(jout, (jbyte *)out, 0);
 }
 
