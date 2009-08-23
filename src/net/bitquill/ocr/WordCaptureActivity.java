@@ -372,6 +372,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                         Log.d(TAG, "Extent is " + ext.top + "," + ext.left + "," + ext.bottom + "," + ext.right);
 
                         if (mEnableDump) {
+                            FileDumpUtil.dump("camera", img);
                             FileDumpUtil.dump("bin", binImg);
                         }
 
@@ -463,16 +464,11 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private static final SimpleStructuringElement sVStrel = SimpleStructuringElement.makeVertical(2);
     
     // FIXME make this return extracted Bitmap
-    private static final GrayImage findWordExtent (GrayImage img, Rect ext) {
-        
-        FileDumpUtil.dump("in", img);  // XXX tmp
-        
+    private static final GrayImage findWordExtent (GrayImage img, Rect ext) {        
         // Contrast stretch
         int imgMin = img.min(), imgMax = img.max();
         Log.d(TAG, "Image min = " + imgMin + ", max = " + imgMax);
         GrayImage resultImg = img.contrastStretch((byte)imgMin, (byte)imgMax); // Temporarily store stretched image here
-
-        FileDumpUtil.dump("stretch", resultImg);  // XXX tmp
 
         // Adaptive threshold
         float imgMean = resultImg.mean();
@@ -491,14 +487,9 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         int threshOffset = (int)(0.33 * Math.sqrt(resultImg.variance()));  // 0.33 pulled out of my butt
         resultImg.adaptiveThreshold(hi, lo, threshOffset, tmpImg, resultImg);
 
-        FileDumpUtil.dump("mean", tmpImg);  // XXX tmp
-        FileDumpUtil.dump("bin", resultImg);  // XXX tmp
-
         // Dilate; it's grayscale, so we should use erosion instead
         resultImg.erode(sHStrel, tmpImg);
         GrayImage binImg = tmpImg.erode(sVStrel);
-
-        FileDumpUtil.dump("strop", binImg);  // XXX tmp
 
         // Find word extents
         int left = ext.left, right = ext.right, top = ext.top, bottom = ext.bottom;
