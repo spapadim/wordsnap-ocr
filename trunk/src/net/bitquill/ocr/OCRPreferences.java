@@ -34,17 +34,19 @@ implements Preference.OnPreferenceChangeListener, Preference.OnPreferenceClickLi
     public static final String PREF_DEBUG_DUMP = "enable_debug_dump";
     public static final String PREF_DILATE_RADIUS = "dilate_radius";
     public static final String PREF_EDIT_BEFORE = "edit_before";
-    public static final String PREF_ASK_ON_WARNING = "ask_on_warning";
-    public static final String PREF_EXTENT_WARNING = "extent_warning";
-    public static final String PREF_FOCUS_WARNING = "focus_warning";
-    public static final String PREF_CONTRAST_WARNING = "contrast_warning";
+    public static final String PREF_EXTENT_ALERT = "extent_alert";
+    public static final String PREF_FOCUS_ALERT = "focus_alert";
+    public static final String PREF_CONTRAST_ALERT = "contrast_alert";
 
     // XXX - is there a better way to avoid duplication of strings types in resource file??
-    public static final String[] PREF_ASK_ON_WARNING_VALUES = { "never", "edge", "3g", "always" };
-    public static final int PREF_ASK_NEVER = 0;
-    public static final int PREF_ASK_EDGE = 1;
-    public static final int PREF_ASK_3G = 2;
-    public static final int PREF_ASK_ALWAYS = 3;
+    // Values must match pref_alert_on_warning_* string arrays in resources.
+    public static final String[] PREF_ALERT_ON_WARNING_VALUES = { "always", "edge", "3g", "never" };
+    // Order is important! Condition to show alert is: alertMode <= networkAlertLevel (both represented using these values)
+    public static final int PREF_ALERT_ALWAYS = 0;
+    public static final int PREF_ALERT_EDGE = 1;
+    public static final int PREF_ALERT_3G = 2;
+    public static final int PREF_ALERT_NEVER = 3;
+    // Values must match string array resource.
     public static final String[] PREF_DILATE_RADIUS_VALUES = { "small", "medium", "large" };
     public static final int PREF_DILATE_RADIUS_SMALL = 0;
     public static final int PREF_DILATE_RADIUS_MEDIUM = 1;

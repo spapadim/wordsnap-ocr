@@ -89,7 +89,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private static final int AUTOFOCUS_FAILURE = 2;
     private int mAutoFocusStatus;
     
-    private boolean mShowAlerts;  // Should alerts be shown, based on network connectivity, and user preferences
+    private int mNetworkAlertLevel;  // If an alert's mode is <= network alert level, that alert will be shown
     
     private TextView mStatusText;
     private TextView mResultText;
@@ -111,10 +111,10 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     
     private boolean mEnableDump;
     private boolean mEditBefore;
-    private boolean mWarnFocus;
-    private boolean mWarnContrast;
-    private boolean mWarnExtent;
-    private int mAskOnWarning;
+    private int mFocusAlertMode;
+    private int mContrastAlertMode;
+    private int mExtentAlertMode;
+
     private int mDilateRadius;
    
     @Override
@@ -203,26 +203,35 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         });
     }
     
+    private static final int getStringListPreference (SharedPreferences preferences, String key, String[] values, String defaultValue) {
+        return linearSearch(values, preferences.getString(key, defaultValue));
+    }
+
     private void loadPreferences () {
         SharedPreferences preferences = 
             PreferenceManager.getDefaultSharedPreferences(this);
+
         mEnableDump = preferences.getBoolean(OCRPreferences.PREF_DEBUG_DUMP, false);
         if (mEnableDump) {
             FileDumpUtil.init();
         }
         mEditBefore = preferences.getBoolean(OCRPreferences.PREF_EDIT_BEFORE, false);
-        mWarnFocus = preferences.getBoolean(OCRPreferences.PREF_FOCUS_WARNING, true);
-        mWarnContrast = preferences.getBoolean(OCRPreferences.PREF_CONTRAST_WARNING, false);
-        mWarnExtent = preferences.getBoolean(OCRPreferences.PREF_EXTENT_WARNING, true);
-        Log.d(TAG, "loadPreferences ask on warning pref value: " + preferences.getString(OCRPreferences.PREF_ASK_ON_WARNING, getString(R.string.pref_ask_on_warning_default)));
-        mAskOnWarning = linearSearch(OCRPreferences.PREF_ASK_ON_WARNING_VALUES, 
-                preferences.getString(OCRPreferences.PREF_ASK_ON_WARNING, 
-                        getString(R.string.pref_ask_on_warning_default)));
-        mDilateRadius = linearSearch(OCRPreferences.PREF_DILATE_RADIUS_VALUES,
-                preferences.getString(OCRPreferences.PREF_DILATE_RADIUS, 
-                        getString(R.string.pref_dilate_radius_default)));
+
+        mFocusAlertMode = getStringListPreference(preferences, 
+                OCRPreferences.PREF_FOCUS_ALERT, OCRPreferences.PREF_ALERT_ON_WARNING_VALUES, 
+                getString(R.string.pref_focus_alert_default));
+        mExtentAlertMode = getStringListPreference(preferences, 
+                OCRPreferences.PREF_EXTENT_ALERT, OCRPreferences.PREF_ALERT_ON_WARNING_VALUES, 
+                getString(R.string.pref_extent_alert_default));
+        mContrastAlertMode = getStringListPreference(preferences, 
+                OCRPreferences.PREF_CONTRAST_ALERT, OCRPreferences.PREF_ALERT_ON_WARNING_VALUES, 
+                getString(R.string.pref_contrast_alert_default));
+        
+        mDilateRadius = getStringListPreference(preferences,
+                OCRPreferences.PREF_DILATE_RADIUS, OCRPreferences.PREF_DILATE_RADIUS_VALUES,
+                getString(R.string.pref_dilate_radius_default));
     }
-    
+        
     private void startCamera () {
         SurfaceHolder holder = mPreview.getHolder();
         if (mHasSurface) {
@@ -305,7 +314,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         Log.d(TAG, "onResume");
         loadPreferences();
         
-        mShowAlerts = shouldShowAlerts();
+        updateNetworkAlertLevel();
         IntentFilter filter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
         registerReceiver(mConnectivityReceiver, filter, null, mHandler);
         
@@ -450,37 +459,34 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     }
    
     /**
-     * Try to determine whether a warning alert should be shown, depending 
-     * (i) on network connectivity, and (ii) on user preferences.
-     * Does not check if a warning is actually pending; this should be 
-     * done independently (i.e., an alert should be shown only if this method
-     * returns true *and* there is an active warning).
+     * Try to determine whether a warning alert should be shown, depending on network connectivity.
+     * If the alert mode for a particular warning is less than or equal to the network alert level,
+     * then an alert dialog should be shown before submitting data to the OCR web service.
      */
-    private boolean shouldShowAlerts () {
-        int askOnWarning = mAskOnWarning;
-        Log.d(TAG, "askOnWarning = " + askOnWarning);
-        if (askOnWarning == OCRPreferences.PREF_ASK_NEVER) {
-            return false;
-        } else if (askOnWarning == OCRPreferences.PREF_ASK_ALWAYS) {
-            return true;
+    private void updateNetworkAlertLevel () {
+        NetworkInfo netInfo = mConnectivityManager.getActiveNetworkInfo();
+        if (netInfo == null) {
+            // Meaning not to be confused: "show alert only if level is set to 'always show'"
+            mNetworkAlertLevel = OCRPreferences.PREF_ALERT_ALWAYS;
         } else {
-            // We need to find the network state
-            NetworkInfo netInfo = mConnectivityManager.getActiveNetworkInfo();
-            if (netInfo == null || netInfo.getType() != ConnectivityManager.TYPE_MOBILE) {
-                // Either no network info or we're not on a mobile network (only other option is wifi)
-                return false;
+            int netType = netInfo.getType();
+            int netSubtype = netInfo.getSubtype();
+            switch (netType) {
+            case ConnectivityManager.TYPE_WIFI:
+                mNetworkAlertLevel = OCRPreferences.PREF_ALERT_ALWAYS;  // see above for meaning
+                break;
+            case ConnectivityManager.TYPE_MOBILE:
+                if (netSubtype == TelephonyManager.NETWORK_TYPE_UMTS) {
+                    mNetworkAlertLevel = OCRPreferences.PREF_ALERT_3G;
+                } else {
+                    mNetworkAlertLevel = OCRPreferences.PREF_ALERT_EDGE;
+                }
+                break;
+            default:
+                Log.e(TAG, "Unknown network connectivity type: " + netInfo.getTypeName());
+                mNetworkAlertLevel = OCRPreferences.PREF_ALERT_ALWAYS; // arbitrary default
+                break;
             }
-            // We're on a mobile network
-            if (askOnWarning == OCRPreferences.PREF_ASK_3G) {
-                // User wants alerts on all mobile networks (3G is fastest)
-                return true;
-            }
-            // We're on a mobile network, but user wants alerts only if on a network slower than 3G 
-            if (netInfo.getSubtype() != TelephonyManager.NETWORK_TYPE_UMTS) {
-                return true;
-            }
-            // We're on a 3G network and user wants alerts only when on slower networks
-            return false;
         }
     }
     
@@ -488,8 +494,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         @Override
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "Connectivity action broadcast");
-            mShowAlerts = shouldShowAlerts();
-            Log.d(TAG, "Updated show alerts to " + mShowAlerts);
+            updateNetworkAlertLevel();
+            Log.d(TAG, "Updated network alert level to " + mNetworkAlertLevel);
         }
     };
     
@@ -503,7 +509,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 clearAllWarnings(); // FIXME - sort out the warning state logic!!!
                 // We could do this without a separate message, but sending one anyway for consistency...
                 boolean focusWarningActive = 
-                    (mWarnFocus && mAutoFocusStatus != AUTOFOCUS_SUCCESS);
+                    mAutoFocusStatus != AUTOFOCUS_SUCCESS;
                 Message warningMsg = mHandler.obtainMessage(R.id.msg_focus_warning,
                         focusWarningActive ? 1 : 0, -1);
                 mHandler.sendMessage(warningMsg);
@@ -522,7 +528,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                         Log.d(TAG, "Extent is " + ext.top + "," + ext.left + "," + ext.bottom + "," + ext.right);
 
                         boolean extentWarningActive = 
-                            (mWarnExtent && (ext.width() >= mPreviewWidth * EXTENT_WARNING_WIDTH_FRACTION || ext.height() >= mPreviewHeight * EXTENT_WARNING_HEIGHT_FRACTION));
+                            ext.width() >= mPreviewWidth * EXTENT_WARNING_WIDTH_FRACTION || ext.height() >= mPreviewHeight * EXTENT_WARNING_HEIGHT_FRACTION;
                         Message warningMsg = mHandler.obtainMessage(R.id.msg_extent_warning,
                                 extentWarningActive ? 1 : 0, -1);
                         mHandler.sendMessage(warningMsg);
@@ -554,20 +560,31 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 break;
             case R.id.msg_word_bitmap:
                 final Bitmap textBitmap = (Bitmap)msg.obj;
-                boolean activeWarnings = isAnyWarningActive();
-                Log.d(TAG, "should show alerts = " + mShowAlerts);
-                Log.d(TAG, "any warning active = " + activeWarnings);
-                if (mShowAlerts && activeWarnings) {
+                int networkAlertLevel = mNetworkAlertLevel;
+                Log.d(TAG, "network alert level = " + networkAlertLevel);
+                Log.d(TAG, "extent alert mode = " + mExtentAlertMode);
+                Log.d(TAG, "extent alert active = " + getWarning(ID_WARNING_EXTENT));
+                String alertMessage = null;
+                if (mExtentAlertMode <= networkAlertLevel && getWarning(ID_WARNING_EXTENT)) {
+                    alertMessage = getString(R.string.extent_warning_alert_message);
+                    Log.d(TAG, "Set alert message to: " + alertMessage);
+                } else if (mContrastAlertMode <= networkAlertLevel && getWarning(ID_WARNING_CONTRAST)) {
+                    alertMessage = getString(R.string.contrast_warning_alert_message);
+                } else if (mFocusAlertMode <= networkAlertLevel && getWarning(ID_WARNING_FOCUS)) {
+                    alertMessage = getString(R.string.focus_warning_alert_message);
+                }
+                if (alertMessage != null) {
+                    // Defer sending, only after user confirms
                     AlertDialog dialog = new AlertDialog.Builder(WordCaptureActivity.this)
                         .setTitle(R.string.warning_alert_dialog_title)
-                        .setMessage(R.string.warning_alert_dialog_message)
-                        .setPositiveButton(R.string.ok_button, new DialogInterface.OnClickListener() {
+                        .setMessage(alertMessage)
+                        .setPositiveButton(R.string.send_anyway_button, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 sendOCRRequest(textBitmap);
                             }
                         })
-                        .setNegativeButton(R.string.cancel_button, new DialogInterface.OnClickListener() {
+                        .setNegativeButton(R.string.retake_photo_button, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick (DialogInterface dialog, int which) {
                                 // Reset status text
@@ -577,6 +594,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                         .create();
                     dialog.show();
                 } else {
+                    // Send anyway
                     sendOCRRequest(textBitmap);
                 }
                 break;
@@ -649,7 +667,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
 
         // XXX - Refactor code, this shouldn't be here?
         boolean contrastWarningActive = 
-            (mWarnContrast && (imgMax - imgMin) <= CONTRAST_WARNING_RANGE);
+            (imgMax - imgMin) <= CONTRAST_WARNING_RANGE;
         Log.d(TAG, "Contrast range = " + (imgMax - imgMin));
         Message warningMsg = mHandler.obtainMessage(R.id.msg_contrast_warning, 
                 contrastWarningActive ? 1 : 0, -1);
