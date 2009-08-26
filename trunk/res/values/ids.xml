@@ -20,8 +20,11 @@
 <resources>
 	<item type="id" name="msg_auto_focus" />
 	<item type="id" name="msg_preview_frame" />
-	<item type="id" name="msg_text_bitmap" />
+	<item type="id" name="msg_word_bitmap" />
 	<item type="id" name="msg_ocr_result" />
 	<item type="id" name="msg_ocr_fail" />
 	<item type="id" name="msg_reset_status" />
+	<item type="id" name="msg_extent_warning" />
+	<item type="id" name="msg_contrast_warning" />
+	<item type="id" name="msg_focus_warning" />
 </resources>

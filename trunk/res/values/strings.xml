@@ -31,6 +31,9 @@
     <string name="status_processing_text">Contacting server for recognition</string>
     <string name="status_processing_error_text">Server error; please try again</string>
     <string name="status_finished_text">Recognition complete</string>
+    
+    <string name="warning_alert_dialog_title">Warning</string>
+    <string name="warning_alert_dialog_message">One or more warnings are active. You can try to re-take the picture, or proceed anyway.</string>
 
 	<string name="pref_web_ocr_category">OCR service settings</string>
 	<string name="pref_weocr_server">WeOCR Server</string>
@@ -39,12 +42,29 @@
 	<string name="pref_weocr_server_default">http://appsv.ocrgrid.org/cgi-bin/weocr/submit_ocrad.cgi</string>
 -->
     <string name="pref_weocr_server_default">http://appsv.ocrgrid.org/cgi-bin/weocr/submit_tesseract.cgi</string>
+
+    <string name="pref_ui_category">User interface</string>
+    <string name="pref_edit_before">Edit result</string>
+    <string name="pref_edit_before_summary">Edit text before sharing</string>
+    <string name="pref_ask_on_warning">Ask on warning</string>
+    <string name="pref_ask_on_warning_summary">Confirm server submission on warning</string>
+    <string name="pref_extent_warning">Extent size warning</string>
+    <string name="pref_extent_warning_summary">Warn if word extent is too large</string>
+    <string name="pref_focus_warning">Focus warning</string>
+    <string name="pref_focus_warning_summary">Warn if image is out-of-focus</string>
+    <string name="pref_contrast_warning">Contrast warning</string>
+    <string name="pref_contrast_warning_summary">Warn if contrast is too low</string>
+
 	<string name="pref_advanced_category">Advanced settings</string>
 	<string name="pref_debug_dump">Dump image data</string>
 	<string name="pref_debug_dump_summary">Log captured images for debugging</string>
+    <string name="pref_dilate_radius">Dilation radius</string>
+    <string name="pref_dilate_radius_summary"></string>
 
     <string name="servers_dialog_title">Choose WeOCR server</string>
     
+    <string name="ok_button">OK</string>
+    <string name="cancel_button">Cancel</string>
     <string name="close_button">Close</string>
 
 	<string name="menu_settings">Settings</string>
