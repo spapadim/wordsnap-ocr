@@ -19,19 +19,25 @@
 package net.bitquill.ocr;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.Dialog;
 import android.app.SearchManager;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.hardware.Camera;
 import android.hardware.Camera.Size;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.preference.PreferenceManager;
+import android.telephony.TelephonyManager;
 import android.text.ClipboardManager;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -48,6 +54,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import net.bitquill.ocr.image.GrayImage;
 import net.bitquill.ocr.image.SimpleStructuringElement;
@@ -58,10 +65,13 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     
     private static final int TOUCH_BORDER = 20;  // How many pixels to ignore around edges
     private static final long AUTOFOCUS_MAX_WAIT_TIME = 2000L;  // How long to wait for touch-triggered AF to succeed
+    private static final int CONTRAST_WARNING_RANGE = 20; // FIXME put reasonable value
+    private static final float EXTENT_WARNING_WIDTH_FRACTION = 0.5f;
+    private static final float EXTENT_WARNING_HEIGHT_FRACTION = 0.1875f;
     
     private static final int MENU_SETTINGS_ID = Menu.FIRST;
     private static final int MENU_ABOUT_ID = Menu.FIRST + 1;
-        
+            
     private SurfaceView mPreview;
     private boolean mHasSurface;
     private int mPreviewWidth, mPreviewHeight;
@@ -85,9 +95,23 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private Button mDictionaryButton;
     private Button mClipboardButton;
     
+    private static final int ID_WARNING_EXTENT = 0;
+    private static final int ID_WARNING_FOCUS = 1;
+    private static final int ID_WARNING_CONTRAST = 2;
+    private static final int WARNING_ID_COUNT = 3;
+    
+    private TextView[] mWarningViews;
+    
     private ClipboardManager mClipboardManager;
+    private ConnectivityManager mConnectivityManager;
     
     private boolean mEnableDump;
+    private boolean mEditBefore;
+    private boolean mWarnFocus;
+    private boolean mWarnContrast;
+    private boolean mWarnExtent;
+    private int mAskOnWarning;
+    private int mDilateRadius;
    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,6 +125,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         setContentView(R.layout.capture);
         
         mClipboardManager = (ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
+        mConnectivityManager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
         
         mPreview = (SurfaceView)findViewById(R.id.capture_surface);
         
@@ -134,6 +159,13 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mStatusText = (TextView)findViewById(R.id.status_text);
         mResultText = (TextView)findViewById(R.id.result_text);
         mResultText.setVisibility(View.INVISIBLE);
+        
+        mWarningViews = new TextView[WARNING_ID_COUNT];
+        mWarningViews[ID_WARNING_FOCUS] = (TextView)findViewById(R.id.warn_focus_text);
+        mWarningViews[ID_WARNING_EXTENT] = (TextView)findViewById(R.id.warn_extent_text);
+        mWarningViews[ID_WARNING_CONTRAST] = (TextView)findViewById(R.id.warn_contrast_text);
+
+        clearAllWarnings();
         
         mButtonGroup = (LinearLayout)findViewById(R.id.button_group);
         mWebSearchButton = (Button)findViewById(R.id.web_search_button);
@@ -174,6 +206,14 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         if (mEnableDump) {
             FileDumpUtil.init();
         }
+        mEditBefore = preferences.getBoolean(OCRPreferences.PREF_EDIT_BEFORE, false);
+        mWarnFocus = preferences.getBoolean(OCRPreferences.PREF_FOCUS_WARNING, true);
+        mWarnContrast = preferences.getBoolean(OCRPreferences.PREF_CONTRAST_WARNING, false);
+        mWarnExtent = preferences.getBoolean(OCRPreferences.PREF_EXTENT_WARNING, true);
+        mAskOnWarning = Arrays.binarySearch(OCRPreferences.PREF_ASK_ON_WARNING_VALUES, 
+                preferences.getString(OCRPreferences.PREF_ASK_ON_WARNING, getString(R.string.pref_ask_on_warning_default)));
+        mDilateRadius = Arrays.binarySearch(OCRPreferences.PREF_DILATE_RADIUS_VALUES,
+                preferences.getString(OCRPreferences.PREF_DILATE_RADIUS, getString(R.string.pref_dilate_radius_default)));
     }
     
     private void startCamera () {
@@ -225,7 +265,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             @Override
             public void onAutoFocus(boolean success, Camera camera) {
                 Message msg = mHandler.obtainMessage(R.id.msg_auto_focus, 
-                        success ? 1 : AUTOFOCUS_SUCCESS, AUTOFOCUS_FAILURE);
+                        success ? AUTOFOCUS_SUCCESS : AUTOFOCUS_FAILURE, -1);
                 mHandler.sendMessage(msg);
             }
         });
@@ -350,6 +390,85 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         Log.d(TAG, "surfaceChanged: startPreview");
     }
     
+    private void sendOCRRequest (final Bitmap textBitmap) {
+        final WeOCRClient weOCRClient = OCRApplication.getOCRClient();
+        final Thread ocrThread = new Thread() {
+            @Override
+            public void run () {
+                synchronized (weOCRClient) {
+                    try {
+                        String ocrText = weOCRClient.doOCR(textBitmap);
+                        Message msg = mHandler.obtainMessage(R.id.msg_ocr_result, ocrText);
+                        mHandler.sendMessage(msg);
+                    } catch (IOException ioe) {
+                        // TODO
+                        Log.e(TAG, "WeOCR failed", ioe);
+                        mHandler.sendEmptyMessage(R.id.msg_ocr_fail);
+                    }
+                }
+            }
+        };
+        mStatusText.setText(R.string.status_processing_text);
+        ocrThread.start();        
+    }
+    
+    private void setWarning (int warningId, boolean active) {
+        mWarningViews[warningId].setVisibility(active ? View.VISIBLE : View.GONE);
+    }
+    
+    private boolean getWarning (int warningId) {
+        return mWarningViews[warningId].getVisibility() == View.VISIBLE;
+    }
+    
+    private boolean isAnyWarningActive () {
+        for (int id = 0;  id < WARNING_ID_COUNT;  id++) {
+            if (getWarning(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private void clearAllWarnings () {
+        for (int id = 0;  id < WARNING_ID_COUNT;  id++) {
+            setWarning(id, false);
+        }
+    }
+   
+    /**
+     * Try to determine whether a warning alert should be shown, depending 
+     * (i) on network connectivity, and (ii) on user preferences.
+     * Does not check if a warning is actually pending; this should be 
+     * done independently (i.e., an alert should be shown only if this method
+     * returns true *and* there is an active warning).
+     */
+    private boolean shouldShowAlerts () {
+        int askOnWarning = mAskOnWarning;
+        if (askOnWarning == OCRPreferences.PREF_ASK_NEVER) {
+            return false;
+        } else if (askOnWarning == OCRPreferences.PREF_ASK_ALWAYS) {
+            return true;
+        } else {
+            // We need to find the network state
+            NetworkInfo netInfo = mConnectivityManager.getActiveNetworkInfo();
+            if (netInfo == null || netInfo.getType() != ConnectivityManager.TYPE_MOBILE) {
+                // Either no network info or we're not on a mobile network (only other option is wifi)
+                return false;
+            }
+            // We're on a mobile network
+            if (askOnWarning == OCRPreferences.PREF_ASK_3G) {
+                // User wants alerts on all mobile networks (3G is fastest)
+                return true;
+            }
+            // We're on a mobile network, but user wants alerts only if on a network slower than 3G 
+            if (netInfo.getSubtype() != TelephonyManager.NETWORK_TYPE_UMTS) {
+                return true;
+            }
+            // We're on a 3G network and user wants alerts only when on slower networks
+            return false;
+        }
+    }
+    
     private final Handler mHandler = new Handler () {
         @Override
         public void handleMessage(Message msg) {
@@ -357,6 +476,13 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             case R.id.msg_auto_focus:
                 mAutoFocusStatus = msg.arg1;
                 mAutoFocusInProgress = false;
+                clearAllWarnings(); // FIXME - sort out the warning state logic!!!
+                // We could do this without a separate message, but sending one anyway for consistency...
+                boolean focusWarningActive = 
+                    (mWarnFocus && mAutoFocusStatus != AUTOFOCUS_SUCCESS);
+                Message warningMsg = mHandler.obtainMessage(R.id.msg_focus_warning,
+                        focusWarningActive ? 1 : 0, -1);
+                mHandler.sendMessage(warningMsg);
                 break;
             case R.id.msg_preview_frame:
                 //mPreviewCaptureInProgress = false;
@@ -371,6 +497,12 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                         Log.d(TAG, "Find word extent in " + (System.currentTimeMillis() - startTime) + " msec");
                         Log.d(TAG, "Extent is " + ext.top + "," + ext.left + "," + ext.bottom + "," + ext.right);
 
+                        boolean extentWarningActive = 
+                            (mWarnExtent && (ext.width() >= mPreviewWidth * EXTENT_WARNING_WIDTH_FRACTION || ext.height() >= mPreviewHeight * EXTENT_WARNING_HEIGHT_FRACTION));
+                        Message warningMsg = mHandler.obtainMessage(R.id.msg_extent_warning,
+                                extentWarningActive ? 1 : 0, -1);
+                        mHandler.sendMessage(warningMsg);
+                        
                         if (mEnableDump) {
                             FileDumpUtil.dump("camera", img);
                             FileDumpUtil.dump("bin", binImg);
@@ -386,8 +518,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
 
                         mPreviewCaptureInProgress = false; // FIXME - move back up
                         
-                        Message msg = mHandler.obtainMessage(R.id.msg_text_bitmap, textBitmap);
-                        mHandler.sendMessage(msg);
+                        Message bitmapMsg = mHandler.obtainMessage(R.id.msg_word_bitmap, textBitmap);
+                        mHandler.sendMessage(bitmapMsg);
                     }
                 };
                 mButtonGroup.setVisibility(View.GONE);
@@ -396,27 +528,30 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 mProcessingInProgress = true;
                 preprocessThread.start();
                 break;
-            case R.id.msg_text_bitmap:
+            case R.id.msg_word_bitmap:
                 final Bitmap textBitmap = (Bitmap)msg.obj;
-                final WeOCRClient weOCRClient = OCRApplication.getOCRClient();
-                final Thread ocrThread = new Thread() {
-                    @Override
-                    public void run () {
-                        synchronized (weOCRClient) {
-                            try {
-                                String ocrText = weOCRClient.doOCR(textBitmap);
-                                Message msg = mHandler.obtainMessage(R.id.msg_ocr_result, ocrText);
-                                mHandler.sendMessage(msg);
-                            } catch (IOException ioe) {
-                                // TODO
-                                Log.e(TAG, "WeOCR failed", ioe);
-                                mHandler.sendEmptyMessage(R.id.msg_ocr_fail);
+                if (shouldShowAlerts() && isAnyWarningActive()) {  // FIXME - don't call shouldShowAlert here, move to configuration changed listener
+                    AlertDialog dialog = new AlertDialog.Builder(WordCaptureActivity.this)
+                        .setTitle(R.string.warning_alert_dialog_title)
+                        .setMessage(R.string.warning_alert_dialog_message)
+                        .setPositiveButton(R.string.ok_button, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                sendOCRRequest(textBitmap);
                             }
-                        }
-                    }
-                };
-                mStatusText.setText(R.string.status_processing_text);
-                ocrThread.start();
+                        })
+                        .setNegativeButton(R.string.cancel_button, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick (DialogInterface dialog, int which) {
+                                // Reset status text
+                                mStatusText.setText(R.string.status_guide_text);
+                            }
+                        })
+                        .create();
+                    dialog.show();
+                } else {
+                    sendOCRRequest(textBitmap);
+                }
                 break;
             case R.id.msg_ocr_result:
                 final String ocrText = (String)msg.obj;
@@ -442,6 +577,15 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 //mResultText.setVisibility(View.INVISIBLE);
                 mStatusText.setText(R.string.status_guide_text);
                 break;
+            case R.id.msg_extent_warning:
+                setWarning(ID_WARNING_EXTENT, msg.arg1 != 0);
+                break;
+            case R.id.msg_contrast_warning:
+                setWarning(ID_WARNING_CONTRAST, msg.arg1 != 0);
+                break;
+            case R.id.msg_focus_warning:
+                setWarning(ID_WARNING_FOCUS, msg.arg1 != 0);
+                break;
             default:
                 super.handleMessage(msg);
             }
@@ -460,16 +604,30 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                     centerY + halfWidth, centerX + halfHeight);
     }
     
-    private static final SimpleStructuringElement sHStrel = SimpleStructuringElement.makeHorizontal(2);
-    private static final SimpleStructuringElement sVStrel = SimpleStructuringElement.makeVertical(2);
+    // Values should correspond to OCRPreferences.PREF_DILATE_RADIUS_* indices
+    private static final SimpleStructuringElement[] sHStrel = {
+        SimpleStructuringElement.makeHorizontal(1), 
+        SimpleStructuringElement.makeHorizontal(2),
+        SimpleStructuringElement.makeHorizontal(3) };
+    private static final SimpleStructuringElement[] sVStrel = {
+        SimpleStructuringElement.makeVertical(1),
+        SimpleStructuringElement.makeVertical(2),
+        SimpleStructuringElement.makeVertical(3) };
     
-    // FIXME make this return extracted Bitmap
-    private static final GrayImage findWordExtent (GrayImage img, Rect ext) {        
+    private final GrayImage findWordExtent (GrayImage img, Rect ext) {        
         // Contrast stretch
         int imgMin = img.min(), imgMax = img.max();
         Log.d(TAG, "Image min = " + imgMin + ", max = " + imgMax);
         GrayImage resultImg = img.contrastStretch((byte)imgMin, (byte)imgMax); // Temporarily store stretched image here
 
+        // XXX - Refactor code, this shouldn't be here?
+        boolean contrastWarningActive = 
+            (mWarnContrast && (imgMax - imgMin) <= CONTRAST_WARNING_RANGE);
+        Log.d(TAG, "Contrast range = " + (imgMax - imgMin));
+        Message warningMsg = mHandler.obtainMessage(R.id.msg_contrast_warning, 
+                contrastWarningActive ? 1 : 0, -1);
+        mHandler.sendMessage(warningMsg);
+        
         // Adaptive threshold
         float imgMean = resultImg.mean();
         Log.d(TAG, "Stretched image mean = " + imgMean);
@@ -488,8 +646,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         resultImg.adaptiveThreshold(hi, lo, threshOffset, tmpImg, resultImg);
 
         // Dilate; it's grayscale, so we should use erosion instead
-        resultImg.erode(sHStrel, tmpImg);
-        GrayImage binImg = tmpImg.erode(sVStrel);
+        resultImg.erode(sHStrel[mDilateRadius], tmpImg);
+        GrayImage binImg = tmpImg.erode(sVStrel[mDilateRadius]);
 
         // Find word extents
         int left = ext.left, right = ext.right, top = ext.top, bottom = ext.bottom;
