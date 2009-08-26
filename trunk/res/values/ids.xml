@@ -27,4 +27,7 @@
 	<item type="id" name="msg_extent_warning" />
 	<item type="id" name="msg_contrast_warning" />
 	<item type="id" name="msg_focus_warning" />
+	<item type="id" name="msg_wikipedia" />
+	<item type="id" name="msg_web_search" />
+	<item type="id" name="msg_clipboard" />
 </resources>
