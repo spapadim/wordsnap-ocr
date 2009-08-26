@@ -20,7 +20,6 @@ package net.bitquill.ocr;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.app.SearchManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -43,6 +42,7 @@ import android.telephony.TelephonyManager;
 import android.text.ClipboardManager;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
@@ -52,11 +52,11 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 import net.bitquill.ocr.image.GrayImage;
 import net.bitquill.ocr.image.SimpleStructuringElement;
@@ -67,7 +67,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     
     private static final int TOUCH_BORDER = 20;  // How many pixels to ignore around edges
     private static final long AUTOFOCUS_MAX_WAIT_TIME = 2000L;  // How long to wait for touch-triggered AF to succeed
-    private static final int CONTRAST_WARNING_RANGE = 20; // FIXME put reasonable value
+    private static final int CONTRAST_WARNING_RANGE = 90; // XXX check value
     private static final float EXTENT_WARNING_WIDTH_FRACTION = 0.5f;
     private static final float EXTENT_WARNING_HEIGHT_FRACTION = 0.1875f;
     
@@ -105,16 +105,15 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private static final int WARNING_ID_COUNT = 3;
     
     private TextView[] mWarningViews;
+    private int[] mAlertModes;
     
     private ClipboardManager mClipboardManager;
     private ConnectivityManager mConnectivityManager;
     
     private boolean mEnableDump;
+    
     private boolean mEditBefore;
-    private int mFocusAlertMode;
-    private int mContrastAlertMode;
-    private int mExtentAlertMode;
-
+    
     private int mDilateRadius;
    
     @Override
@@ -126,8 +125,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         requestWindowFeature(Window.FEATURE_NO_TITLE);      
     
-        setContentView(R.layout.capture);
-        
+        setContentView(R.layout.capture);  // XXX check - use same inflater??
+
         mClipboardManager = (ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
         mConnectivityManager = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
         
@@ -164,11 +163,12 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mResultText = (TextView)findViewById(R.id.result_text);
         mResultText.setVisibility(View.INVISIBLE);
         
+        mAlertModes = new int[WARNING_ID_COUNT];
         mWarningViews = new TextView[WARNING_ID_COUNT];
         mWarningViews[ID_WARNING_FOCUS] = (TextView)findViewById(R.id.warn_focus_text);
         mWarningViews[ID_WARNING_EXTENT] = (TextView)findViewById(R.id.warn_extent_text);
         mWarningViews[ID_WARNING_CONTRAST] = (TextView)findViewById(R.id.warn_contrast_text);
-
+        
         clearAllWarnings();
         
         mButtonGroup = (LinearLayout)findViewById(R.id.button_group);
@@ -179,30 +179,47 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mWebSearchButton.setOnClickListener(new View.OnClickListener () {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(Intent.ACTION_WEB_SEARCH);
-                intent.putExtra(SearchManager.QUERY, mResultText.getText());
-                startActivity(intent);
-                finish();
+                handleSubmitAction(R.id.msg_web_search, mResultText.getText());
             }
         });
         mDictionaryButton.setOnClickListener(new View.OnClickListener () {
             @Override
             public void onClick(View v) {
-                Uri url = Uri.parse("http://en.m.wikipedia.org/wiki?search=" + mResultText.getText());
-                Intent intent = new Intent(Intent.ACTION_VIEW, url);
-                startActivity(intent);
-                finish();
+                handleSubmitAction(R.id.msg_wikipedia, mResultText.getText());
             }
         });
         mClipboardButton.setOnClickListener(new View.OnClickListener () {
             @Override
             public void onClick(View v) {
-                mClipboardManager.setText(mResultText.getText());
-                finish();
+                handleSubmitAction(R.id.msg_clipboard, mResultText.getText());
             }
         });
     }
     
+    private final void handleSubmitAction (final int msgId, final CharSequence initialText) {
+        if (!mEditBefore) {
+            Message msg = mHandler.obtainMessage(msgId, initialText);
+            mHandler.sendMessage(msg);
+        } else {
+            LayoutInflater inflater = LayoutInflater.from(this);
+            final EditText dialogEditView = (EditText)inflater.inflate(R.layout.edit_dialog_view, null);
+            AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.edit_text_dialog_title)
+                .setPositiveButton(R.string.ok_button, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        Message msg = mHandler.obtainMessage(msgId, dialogEditView.getText());
+                        mHandler.sendMessage(msg);
+                    }
+                    
+                })
+                .setView(dialogEditView)
+                .create();
+            dialogEditView.setText(initialText);
+            dialog.show();
+        }
+    }
+        
     private static final int getStringListPreference (SharedPreferences preferences, String key, String[] values, String defaultValue) {
         return linearSearch(values, preferences.getString(key, defaultValue));
     }
@@ -217,13 +234,13 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         }
         mEditBefore = preferences.getBoolean(OCRPreferences.PREF_EDIT_BEFORE, false);
 
-        mFocusAlertMode = getStringListPreference(preferences, 
+        mAlertModes[ID_WARNING_FOCUS] = getStringListPreference(preferences, 
                 OCRPreferences.PREF_FOCUS_ALERT, OCRPreferences.PREF_ALERT_ON_WARNING_VALUES, 
                 getString(R.string.pref_focus_alert_default));
-        mExtentAlertMode = getStringListPreference(preferences, 
+        mAlertModes[ID_WARNING_EXTENT] = getStringListPreference(preferences, 
                 OCRPreferences.PREF_EXTENT_ALERT, OCRPreferences.PREF_ALERT_ON_WARNING_VALUES, 
                 getString(R.string.pref_extent_alert_default));
-        mContrastAlertMode = getStringListPreference(preferences, 
+        mAlertModes[ID_WARNING_CONTRAST] = getStringListPreference(preferences, 
                 OCRPreferences.PREF_CONTRAST_ALERT, OCRPreferences.PREF_ALERT_ON_WARNING_VALUES, 
                 getString(R.string.pref_contrast_alert_default));
         
@@ -443,15 +460,6 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         return mWarningViews[warningId].getVisibility() == View.VISIBLE;
     }
     
-    private boolean isAnyWarningActive () {
-        for (int id = 0;  id < WARNING_ID_COUNT;  id++) {
-            if (getWarning(id)) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
     private void clearAllWarnings () {
         for (int id = 0;  id < WARNING_ID_COUNT;  id++) {
             setWarning(id, false);
@@ -561,16 +569,17 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             case R.id.msg_word_bitmap:
                 final Bitmap textBitmap = (Bitmap)msg.obj;
                 int networkAlertLevel = mNetworkAlertLevel;
+                int[] alertModes = mAlertModes;
                 Log.d(TAG, "network alert level = " + networkAlertLevel);
-                Log.d(TAG, "extent alert mode = " + mExtentAlertMode);
+                Log.d(TAG, "extent alert mode = " + alertModes[ID_WARNING_EXTENT]);
                 Log.d(TAG, "extent alert active = " + getWarning(ID_WARNING_EXTENT));
                 String alertMessage = null;
-                if (mExtentAlertMode <= networkAlertLevel && getWarning(ID_WARNING_EXTENT)) {
+                if (alertModes[ID_WARNING_EXTENT] <= networkAlertLevel && getWarning(ID_WARNING_EXTENT)) {
                     alertMessage = getString(R.string.extent_warning_alert_message);
                     Log.d(TAG, "Set alert message to: " + alertMessage);
-                } else if (mContrastAlertMode <= networkAlertLevel && getWarning(ID_WARNING_CONTRAST)) {
+                } else if (alertModes[ID_WARNING_CONTRAST] <= networkAlertLevel && getWarning(ID_WARNING_CONTRAST)) {
                     alertMessage = getString(R.string.contrast_warning_alert_message);
-                } else if (mFocusAlertMode <= networkAlertLevel && getWarning(ID_WARNING_FOCUS)) {
+                } else if (alertModes[ID_WARNING_FOCUS] <= networkAlertLevel && getWarning(ID_WARNING_FOCUS)) {
                     alertMessage = getString(R.string.focus_warning_alert_message);
                 }
                 if (alertMessage != null) {
@@ -630,6 +639,22 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 break;
             case R.id.msg_focus_warning:
                 setWarning(ID_WARNING_FOCUS, msg.arg1 != 0);
+                break;
+            case R.id.msg_web_search:
+                Intent webSearchIntent = new Intent(Intent.ACTION_WEB_SEARCH);
+                webSearchIntent.putExtra(SearchManager.QUERY, (CharSequence)msg.obj);
+                startActivity(webSearchIntent);
+                finish();
+                break;
+            case R.id.msg_wikipedia:
+                Uri wikipediaUrl = Uri.parse("http://en.m.wikipedia.org/wiki?search=" + (CharSequence)msg.obj);
+                Intent wikipediaIntent = new Intent(Intent.ACTION_VIEW, wikipediaUrl);
+                startActivity(wikipediaIntent);
+                finish();
+                break;
+            case R.id.msg_clipboard:
+                mClipboardManager.setText((CharSequence)msg.obj);
+                finish();
                 break;
             default:
                 super.handleMessage(msg);

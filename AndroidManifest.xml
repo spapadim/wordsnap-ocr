@@ -24,7 +24,7 @@
 		android:name=".OCRApplication" android:description="@string/app_description" android:debuggable="true">
 
 		<activity android:launchMode="singleInstance" android:screenOrientation="landscape"
-			android:name=".WordCaptureActivity" android:label="@string/activity_word_capture">
+			android:name=".WordCaptureActivity" android:label="@string/activity_word_capture" android:configChanges="keyboardHidden|orientation">
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
