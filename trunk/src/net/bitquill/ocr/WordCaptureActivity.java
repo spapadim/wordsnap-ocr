@@ -22,9 +22,11 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.SearchManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
@@ -86,6 +88,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private static final int AUTOFOCUS_SUCCESS = 1;
     private static final int AUTOFOCUS_FAILURE = 2;
     private int mAutoFocusStatus;
+    
+    private boolean mShowAlerts;  // Should alerts be shown, based on network connectivity, and user preferences
     
     private TextView mStatusText;
     private TextView mResultText;
@@ -210,10 +214,13 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mWarnFocus = preferences.getBoolean(OCRPreferences.PREF_FOCUS_WARNING, true);
         mWarnContrast = preferences.getBoolean(OCRPreferences.PREF_CONTRAST_WARNING, false);
         mWarnExtent = preferences.getBoolean(OCRPreferences.PREF_EXTENT_WARNING, true);
-        mAskOnWarning = Arrays.binarySearch(OCRPreferences.PREF_ASK_ON_WARNING_VALUES, 
-                preferences.getString(OCRPreferences.PREF_ASK_ON_WARNING, getString(R.string.pref_ask_on_warning_default)));
-        mDilateRadius = Arrays.binarySearch(OCRPreferences.PREF_DILATE_RADIUS_VALUES,
-                preferences.getString(OCRPreferences.PREF_DILATE_RADIUS, getString(R.string.pref_dilate_radius_default)));
+        Log.d(TAG, "loadPreferences ask on warning pref value: " + preferences.getString(OCRPreferences.PREF_ASK_ON_WARNING, getString(R.string.pref_ask_on_warning_default)));
+        mAskOnWarning = linearSearch(OCRPreferences.PREF_ASK_ON_WARNING_VALUES, 
+                preferences.getString(OCRPreferences.PREF_ASK_ON_WARNING, 
+                        getString(R.string.pref_ask_on_warning_default)));
+        mDilateRadius = linearSearch(OCRPreferences.PREF_DILATE_RADIUS_VALUES,
+                preferences.getString(OCRPreferences.PREF_DILATE_RADIUS, 
+                        getString(R.string.pref_dilate_radius_default)));
     }
     
     private void startCamera () {
@@ -264,6 +271,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mCamera.autoFocus(new Camera.AutoFocusCallback() { 
             @Override
             public void onAutoFocus(boolean success, Camera camera) {
+                Log.d(TAG, "onAutoFocus success = " + success);
                 Message msg = mHandler.obtainMessage(R.id.msg_auto_focus, 
                         success ? AUTOFOCUS_SUCCESS : AUTOFOCUS_FAILURE, -1);
                 mHandler.sendMessage(msg);
@@ -296,6 +304,11 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     protected void onResume() {
         Log.d(TAG, "onResume");
         loadPreferences();
+        
+        mShowAlerts = shouldShowAlerts();
+        IntentFilter filter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
+        registerReceiver(mConnectivityReceiver, filter, null, mHandler);
+        
         initStateVariables();
         super.onResume();
         startCamera();
@@ -305,6 +318,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     protected void onPause() {
         Log.d(TAG, "onPause");
         super.onPause();
+        unregisterReceiver(mConnectivityReceiver);
         stopCamera();
     }
     
@@ -444,6 +458,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
      */
     private boolean shouldShowAlerts () {
         int askOnWarning = mAskOnWarning;
+        Log.d(TAG, "askOnWarning = " + askOnWarning);
         if (askOnWarning == OCRPreferences.PREF_ASK_NEVER) {
             return false;
         } else if (askOnWarning == OCRPreferences.PREF_ASK_ALWAYS) {
@@ -468,6 +483,15 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             return false;
         }
     }
+    
+    private final BroadcastReceiver mConnectivityReceiver = new BroadcastReceiver () {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "Connectivity action broadcast");
+            mShowAlerts = shouldShowAlerts();
+            Log.d(TAG, "Updated show alerts to " + mShowAlerts);
+        }
+    };
     
     private final Handler mHandler = new Handler () {
         @Override
@@ -530,7 +554,10 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 break;
             case R.id.msg_word_bitmap:
                 final Bitmap textBitmap = (Bitmap)msg.obj;
-                if (shouldShowAlerts() && isAnyWarningActive()) {  // FIXME - don't call shouldShowAlert here, move to configuration changed listener
+                boolean activeWarnings = isAnyWarningActive();
+                Log.d(TAG, "should show alerts = " + mShowAlerts);
+                Log.d(TAG, "any warning active = " + activeWarnings);
+                if (mShowAlerts && activeWarnings) {
                     AlertDialog dialog = new AlertDialog.Builder(WordCaptureActivity.this)
                         .setTitle(R.string.warning_alert_dialog_title)
                         .setMessage(R.string.warning_alert_dialog_message)
@@ -677,5 +704,23 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         
         return resultImg;
     }
+
+    /**
+     * Utility function to do simple linear search over an array of Objects.
+     * Comparison uses {@link Object#equals(Object)} method.
+     * 
+     * @param a    Array to search
+     * @param key  Object value to look for
+     * @return     Index of object, or -1 if not found
+     */
+    private static final int linearSearch (Object[] a, Object key) {
+        for (int i = 0;  i < a.length;  i++) {
+            if (a[i].equals(key)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
 
 }
