@@ -63,6 +63,8 @@
     <string name="pref_contrast_alert_default"></string>
 
 	<string name="pref_advanced_category">Advanced settings</string>
+	<string name="pref_continuous_mode">Continuous mode</string>
+	<string name="pref_continuous_mode_summary">Continuous shooting and word detection</string>
 	<string name="pref_debug_dump">Dump image data</string>
 	<string name="pref_debug_dump_summary">Log captured images for debugging</string>
     <string name="pref_dilate_radius">Dilation radius</string>

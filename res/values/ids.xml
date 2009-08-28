@@ -18,16 +18,21 @@
   along with WordSnap.  If not, see <http://www.gnu.org/licenses/>.
  -->
 <resources>
-	<item type="id" name="msg_auto_focus" />
-	<item type="id" name="msg_preview_frame" />
-	<item type="id" name="msg_word_bitmap" />
-	<item type="id" name="msg_ocr_result" />
-	<item type="id" name="msg_ocr_fail" />
-	<item type="id" name="msg_reset_status" />
-	<item type="id" name="msg_extent_warning" />
-	<item type="id" name="msg_contrast_warning" />
-	<item type="id" name="msg_focus_warning" />
-	<item type="id" name="msg_wikipedia" />
-	<item type="id" name="msg_web_search" />
-	<item type="id" name="msg_clipboard" />
+    <item type="id" name="msg_ocr_detect_word" />
+    <item type="id" name="msg_ocr_recognize" />
+    <item type="id" name="msg_ocr_quit" />
+
+	<item type="id" name="msg_camera_auto_focus" />
+	<item type="id" name="msg_camera_preview_frame" />
+
+	<item type="id" name="msg_ui_word_bitmap" />
+	<item type="id" name="msg_ui_ocr_success" />
+	<item type="id" name="msg_ui_ocr_fail" />
+	<item type="id" name="msg_ui_reset_status" />
+	<item type="id" name="msg_ui_extent_warning" />
+	<item type="id" name="msg_ui_contrast_warning" />
+	<item type="id" name="msg_ui_focus_warning" />
+	<item type="id" name="msg_ui_wikipedia" />
+	<item type="id" name="msg_ui_web_search" />
+	<item type="id" name="msg_ui_clipboard" />
 </resources>

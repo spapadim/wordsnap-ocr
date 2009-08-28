@@ -35,7 +35,7 @@ public class GrayImage extends GrayMatrix {
         }   
     }
     
-    protected GrayImage (int width, int height) {
+    public GrayImage (int width, int height) {
         super(width, height);
     }
     
