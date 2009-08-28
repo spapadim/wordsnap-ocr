@@ -18,8 +18,8 @@
   along with WordSnap.  If not, see <http://www.gnu.org/licenses/>.
  -->
 <resources>
-	<color name="guide_inner">#FF00EE00</color>
-    <color name="guide_outer">#FFEE0000</color>
+	<color name="guide_crosshairs">#FF58D558</color>
+    <color name="guide_extent">#FFE61E1E</color>
     <color name="guide_mask_dark">#50000000</color>
     <color name="guide_mask_light">#20000000</color>
 </resources>

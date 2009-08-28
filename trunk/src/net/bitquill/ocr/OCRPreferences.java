@@ -31,8 +31,11 @@ public class OCRPreferences extends PreferenceActivity
 implements Preference.OnPreferenceChangeListener, Preference.OnPreferenceClickListener {
     
     public static final String PREF_WEOCR_ENDPOINT = "weocr_endpoint_url";
+    
+    public static final String PREF_CONTINUOUS_MODE = "continuous_mode";
     public static final String PREF_DEBUG_DUMP = "enable_debug_dump";
     public static final String PREF_DILATE_RADIUS = "dilate_radius";
+    
     public static final String PREF_EDIT_BEFORE = "edit_before";
     public static final String PREF_EXTENT_ALERT = "extent_alert";
     public static final String PREF_FOCUS_ALERT = "focus_alert";

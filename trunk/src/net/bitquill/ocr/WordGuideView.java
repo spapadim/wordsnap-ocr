@@ -30,14 +30,16 @@ public class WordGuideView extends View {
     
     private static final float OUTER_FRACTION = 0.125f;  //  1/8th
     private static final float INNER_FRACTION = 0.083f;  //  1/12th
-    private static final float WIDTH_FRACTION = 0.250f;  //  1/4th
+    private static final float WIDTH_FRACTION = 0.300f;  //  1/4th
     
     private Paint mPaint;
     private Rect mRect;
     private int mDarkMaskColor;
     private int mLightMaskColor;
-    private int mOuterColor;
-    private int mInnerColor;
+    private int mCrosshairsColor;
+    private int mExtentColor;
+    
+    private Rect mExtentRect;
     
     public WordGuideView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -48,8 +50,24 @@ public class WordGuideView extends View {
         Resources resources = getResources();
         mDarkMaskColor = resources.getColor(R.color.guide_mask_dark);
         mLightMaskColor = resources.getColor(R.color.guide_mask_light);
-        mOuterColor = resources.getColor(R.color.guide_outer);
-        mInnerColor = resources.getColor(R.color.guide_inner);
+        mCrosshairsColor = resources.getColor(R.color.guide_crosshairs);
+        mExtentColor = resources.getColor(R.color.guide_extent);
+        
+        // Word extent annotation rect
+        mExtentRect = null;
+    }
+    
+    public void setExtentRect (Rect extentRect) {
+        Rect invalidateRect = mExtentRect;
+        if (invalidateRect != null && extentRect != null) {
+            invalidateRect.union(extentRect); // old rect will be discarded anyway
+        } else {
+            invalidateRect = extentRect;
+        }
+        mExtentRect = extentRect;
+        if (invalidateRect != null) {
+            invalidate(invalidateRect);
+        }
     }
 
     @Override
@@ -66,6 +84,7 @@ public class WordGuideView extends View {
         int maskWidth = Math.round((1.0f - WIDTH_FRACTION) * width / 2.0f);
 
         // Draw the exterior (i.e. outside the framing guides) darkened
+        paint.setStyle(Paint.Style.FILL);
         paint.setColor(mDarkMaskColor);
         rect.set(0, 0, width, maskHeight);
         canvas.drawRect(rect, paint);
@@ -79,23 +98,28 @@ public class WordGuideView extends View {
         rect.set(width - maskWidth, maskHeight, width, height - maskHeight);
         canvas.drawRect(rect, paint);
 
-        // Draw outer and inner text line guides
-        paint.setColor(mOuterColor);
-        rect.set(0, maskHeight, width, maskHeight + 2);
+        // Draw outer and inner viewfinder rectangles
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setColor(mCrosshairsColor);
+        paint.setStrokeWidth(2);
+        rect.set(maskWidth, maskHeight, width - maskWidth, height - maskHeight);
         canvas.drawRect(rect, paint);
-        rect.set(0, height - maskHeight - 2, width, height - maskHeight);
-        canvas.drawRect(rect, paint);
-        paint.setColor(mInnerColor);
-        rect.set(0, maskHeight + guideGap, width, maskHeight + guideGap + 1);
-        canvas.drawRect(rect, paint);
-        rect.set(0, height - maskHeight - guideGap - 1, width, height - maskHeight - guideGap);
+        rect.set(maskWidth, maskHeight + guideGap, width - maskWidth, height - maskHeight - guideGap);
         canvas.drawRect(rect, paint);
         
-        // Draw width guides
-        paint.setColor(mOuterColor);
-        rect.set(maskWidth - 1, maskHeight, maskWidth, height - maskHeight);
+        // Draw cross-hairs
+        paint.setStrokeWidth(1);
+        rect.set(width/2, maskHeight - guideGap, width/2, height - maskHeight + guideGap);
         canvas.drawRect(rect, paint);
-        rect.set(width - maskWidth - 1, maskHeight, width - maskWidth, height - maskHeight);
+        rect.set(maskWidth - guideGap, height/2, width - maskWidth + guideGap, height/2);
         canvas.drawRect(rect, paint);
+        
+        // Draw word extent annotation, if present
+        if (mExtentRect != null) {
+            paint.setColor(mExtentColor);
+            //paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(2);
+            canvas.drawRect(mExtentRect, paint);
+        }
     }
 }

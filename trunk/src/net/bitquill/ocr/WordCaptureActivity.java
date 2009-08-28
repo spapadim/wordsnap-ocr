@@ -67,9 +67,6 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     
     private static final int TOUCH_BORDER = 20;  // How many pixels to ignore around edges
     private static final long AUTOFOCUS_MAX_WAIT_TIME = 2000L;  // How long to wait for touch-triggered AF to succeed
-    private static final int CONTRAST_WARNING_RANGE = 90; // XXX check value
-    private static final float EXTENT_WARNING_WIDTH_FRACTION = 0.5f;
-    private static final float EXTENT_WARNING_HEIGHT_FRACTION = 0.1875f;
     
     private static final int MENU_SETTINGS_ID = Menu.FIRST;
     private static final int MENU_ABOUT_ID = Menu.FIRST + 1;
@@ -104,17 +101,22 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private static final int ID_WARNING_CONTRAST = 2;
     private static final int WARNING_ID_COUNT = 3;
     
+    private WordGuideView mGuideView;
+    
     private TextView[] mWarningViews;
     private int[] mAlertModes;
     
     private ClipboardManager mClipboardManager;
     private ConnectivityManager mConnectivityManager;
     
+    private boolean mContinuousMode;
     private boolean mEnableDump;
     
     private boolean mEditBefore;
     
     private int mDilateRadius;
+    
+    private OCRThread mOCRThread; // FIXME initialize!!!!
    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -159,6 +161,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             }
         });
         
+        mGuideView = (WordGuideView)findViewById(R.id.guide_view);
+        
         mStatusText = (TextView)findViewById(R.id.status_text);
         mResultText = (TextView)findViewById(R.id.result_text);
         mResultText.setVisibility(View.INVISIBLE);
@@ -179,19 +183,19 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mWebSearchButton.setOnClickListener(new View.OnClickListener () {
             @Override
             public void onClick(View v) {
-                handleSubmitAction(R.id.msg_web_search, mResultText.getText());
+                handleSubmitAction(R.id.msg_ui_web_search, mResultText.getText());
             }
         });
         mDictionaryButton.setOnClickListener(new View.OnClickListener () {
             @Override
             public void onClick(View v) {
-                handleSubmitAction(R.id.msg_wikipedia, mResultText.getText());
+                handleSubmitAction(R.id.msg_ui_wikipedia, mResultText.getText());
             }
         });
         mClipboardButton.setOnClickListener(new View.OnClickListener () {
             @Override
             public void onClick(View v) {
-                handleSubmitAction(R.id.msg_clipboard, mResultText.getText());
+                handleSubmitAction(R.id.msg_ui_clipboard, mResultText.getText());
             }
         });
     }
@@ -228,12 +232,18 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         SharedPreferences preferences = 
             PreferenceManager.getDefaultSharedPreferences(this);
 
-        mEnableDump = preferences.getBoolean(OCRPreferences.PREF_DEBUG_DUMP, false);
+        boolean enableDump = preferences.getBoolean(OCRPreferences.PREF_DEBUG_DUMP, false);
         if (mEnableDump) {
             FileDumpUtil.init();
         }
-        mEditBefore = preferences.getBoolean(OCRPreferences.PREF_EDIT_BEFORE, false);
+        int dilateRadius = getStringListPreference(preferences,
+                OCRPreferences.PREF_DILATE_RADIUS, OCRPreferences.PREF_DILATE_RADIUS_VALUES,
+                getString(R.string.pref_dilate_radius_default));
+        mOCRThread.setPreferences(enableDump, dilateRadius);
+        
+        mContinuousMode = preferences.getBoolean(OCRPreferences.PREF_CONTINUOUS_MODE, false);
 
+        mEditBefore = preferences.getBoolean(OCRPreferences.PREF_EDIT_BEFORE, false);
         mAlertModes[ID_WARNING_FOCUS] = getStringListPreference(preferences, 
                 OCRPreferences.PREF_FOCUS_ALERT, OCRPreferences.PREF_ALERT_ON_WARNING_VALUES, 
                 getString(R.string.pref_focus_alert_default));
@@ -243,10 +253,6 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mAlertModes[ID_WARNING_CONTRAST] = getStringListPreference(preferences, 
                 OCRPreferences.PREF_CONTRAST_ALERT, OCRPreferences.PREF_ALERT_ON_WARNING_VALUES, 
                 getString(R.string.pref_contrast_alert_default));
-        
-        mDilateRadius = getStringListPreference(preferences,
-                OCRPreferences.PREF_DILATE_RADIUS, OCRPreferences.PREF_DILATE_RADIUS_VALUES,
-                getString(R.string.pref_dilate_radius_default));
     }
         
     private void startCamera () {
@@ -298,7 +304,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             @Override
             public void onAutoFocus(boolean success, Camera camera) {
                 Log.d(TAG, "onAutoFocus success = " + success);
-                Message msg = mHandler.obtainMessage(R.id.msg_auto_focus, 
+                Message msg = mHandler.obtainMessage(R.id.msg_camera_auto_focus, 
                         success ? AUTOFOCUS_SUCCESS : AUTOFOCUS_FAILURE, -1);
                 mHandler.sendMessage(msg);
             }
@@ -313,7 +319,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mCamera.setOneShotPreviewCallback(new Camera.PreviewCallback() {
             @Override
             public void onPreviewFrame(byte[] data, Camera camera) {
-                Message msg = mHandler.obtainMessage(R.id.msg_preview_frame, data);
+                Message msg = mHandler.obtainMessage(R.id.msg_camera_preview_frame, data);
                 mHandler.sendMessage(msg);
             }
         });
@@ -326,9 +332,27 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mProcessingInProgress = false;
     }
     
+    private void startOCRThread () {
+        assert(mOCRThread == null);
+        mOCRThread = new OCRThread(mHandler);
+        mOCRThread.start();
+    }
+    
+    private void stopOCRThread () {
+        if (mOCRThread != null) {
+            mOCRThread.getHandler().sendEmptyMessage(R.id.msg_ocr_quit);
+            try {
+                mOCRThread.join();
+            } catch (InterruptedException ie) { }
+            mOCRThread = null;
+        }
+    }
+    
     @Override
     protected void onResume() {
         Log.d(TAG, "onResume");
+        startOCRThread();
+
         loadPreferences();
         
         updateNetworkAlertLevel();
@@ -346,6 +370,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         super.onPause();
         unregisterReceiver(mConnectivityReceiver);
         stopCamera();
+        stopOCRThread();
     }
     
     @Override
@@ -431,25 +456,10 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     }
     
     private void sendOCRRequest (final Bitmap textBitmap) {
-        final WeOCRClient weOCRClient = OCRApplication.getOCRClient();
-        final Thread ocrThread = new Thread() {
-            @Override
-            public void run () {
-                synchronized (weOCRClient) {
-                    try {
-                        String ocrText = weOCRClient.doOCR(textBitmap);
-                        Message msg = mHandler.obtainMessage(R.id.msg_ocr_result, ocrText);
-                        mHandler.sendMessage(msg);
-                    } catch (IOException ioe) {
-                        // TODO
-                        Log.e(TAG, "WeOCR failed", ioe);
-                        mHandler.sendEmptyMessage(R.id.msg_ocr_fail);
-                    }
-                }
-            }
-        };
         mStatusText.setText(R.string.status_processing_text);
-        ocrThread.start();        
+        Handler ocrHandler = mOCRThread.getHandler();
+        Message ocrMessage = ocrHandler.obtainMessage(R.id.msg_ocr_recognize, textBitmap);
+        ocrHandler.sendMessage(ocrMessage);
     }
     
     private void setWarning (int warningId, boolean active) {
@@ -511,53 +521,25 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
-            case R.id.msg_auto_focus:
+            case R.id.msg_camera_auto_focus:
                 mAutoFocusStatus = msg.arg1;
                 mAutoFocusInProgress = false;
                 clearAllWarnings(); // FIXME - sort out the warning state logic!!!
                 // We could do this without a separate message, but sending one anyway for consistency...
                 boolean focusWarningActive = 
                     mAutoFocusStatus != AUTOFOCUS_SUCCESS;
-                Message warningMsg = mHandler.obtainMessage(R.id.msg_focus_warning,
+                Message warningMsg = mHandler.obtainMessage(R.id.msg_ui_focus_warning,
                         focusWarningActive ? 1 : 0, -1);
                 mHandler.sendMessage(warningMsg);
                 break;
-            case R.id.msg_preview_frame:
-                //mPreviewCaptureInProgress = false;
+            case R.id.msg_camera_preview_frame:
                 final byte[] yuv = (byte[])msg.obj;
+                Handler ocrHandler = mOCRThread.getHandler();
+                Message preprocessMsg = ocrHandler.obtainMessage(R.id.msg_ocr_detect_word, mPreviewWidth, mPreviewHeight, msg.obj);
+                ocrHandler.sendMessage(preprocessMsg);
                 final Thread preprocessThread = new Thread() {
                     @Override
                     public void run() {
-                        GrayImage img = new GrayImage(yuv, mPreviewWidth, mPreviewHeight);
-                        long startTime = System.currentTimeMillis();
-                        Rect ext = makeTargetRect();
-                        GrayImage binImg = findWordExtent(img, ext);
-                        Log.d(TAG, "Find word extent in " + (System.currentTimeMillis() - startTime) + " msec");
-                        Log.d(TAG, "Extent is " + ext.top + "," + ext.left + "," + ext.bottom + "," + ext.right);
-
-                        boolean extentWarningActive = 
-                            ext.width() >= mPreviewWidth * EXTENT_WARNING_WIDTH_FRACTION || ext.height() >= mPreviewHeight * EXTENT_WARNING_HEIGHT_FRACTION;
-                        Message warningMsg = mHandler.obtainMessage(R.id.msg_extent_warning,
-                                extentWarningActive ? 1 : 0, -1);
-                        mHandler.sendMessage(warningMsg);
-                        
-                        if (mEnableDump) {
-                            FileDumpUtil.dump("camera", img);
-                            FileDumpUtil.dump("bin", binImg);
-                        }
-
-                        startTime = System.currentTimeMillis();
-                        Bitmap textBitmap = binImg.asBitmap(ext);
-                        Log.d(TAG, "Converted to Bitmap in " + (System.currentTimeMillis() - startTime) + " msec");
-                        
-                        if (mEnableDump) {
-                            FileDumpUtil.dump("word", textBitmap);
-                        }
-
-                        mPreviewCaptureInProgress = false; // FIXME - move back up
-                        
-                        Message bitmapMsg = mHandler.obtainMessage(R.id.msg_word_bitmap, textBitmap);
-                        mHandler.sendMessage(bitmapMsg);
                     }
                 };
                 mButtonGroup.setVisibility(View.GONE);
@@ -566,8 +548,16 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 mProcessingInProgress = true;
                 preprocessThread.start();
                 break;
-            case R.id.msg_word_bitmap:
+            case R.id.msg_ui_word_bitmap:
+                mPreviewCaptureInProgress = false;
                 final Bitmap textBitmap = (Bitmap)msg.obj;
+                
+                final Bundle bundle = msg.getData();
+                final Rect wordExt = bundle.getParcelable(OCRThread.WORD_RECT);
+                if (!getWarning(ID_WARNING_EXTENT)) {
+                    mGuideView.setExtentRect(wordExt);
+                }
+                
                 int networkAlertLevel = mNetworkAlertLevel;
                 int[] alertModes = mAlertModes;
                 Log.d(TAG, "network alert level = " + networkAlertLevel);
@@ -607,52 +597,54 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                     sendOCRRequest(textBitmap);
                 }
                 break;
-            case R.id.msg_ocr_result:
+            case R.id.msg_ui_ocr_success:
                 final String ocrText = (String)msg.obj;
                 Log.i(TAG, "OCR result text: " + ocrText);
                 // Toast fails from this thread
                 //Toast.makeText(WordCaptureActivity.this, "OCR result: " + ocrText, Toast.LENGTH_LONG)
                 //     .show();
                 mStatusText.setText(R.string.status_finished_text);
+                mGuideView.setExtentRect(null);
                 mResultText.setText(ocrText);
                 mResultText.setVisibility(View.VISIBLE);
                 mButtonGroup.setVisibility(View.VISIBLE);
                 mProcessingInProgress = false;
                 mAutoFocusStatus = AUTOFOCUS_UNKNOWN;
-                mHandler.sendEmptyMessageDelayed(R.id.msg_reset_status, 2000L);
+                mHandler.sendEmptyMessageDelayed(R.id.msg_ui_reset_status, 2000L);
                 break;
-            case R.id.msg_ocr_fail:
+            case R.id.msg_ui_ocr_fail:
                 mStatusText.setText(R.string.status_processing_error_text);
+                mGuideView.setExtentRect(null);
                 mProcessingInProgress = false;
                 mAutoFocusStatus = AUTOFOCUS_UNKNOWN;
                 //mHandler.sendEmptyMessageDelayed(R.id.msg_reset_status, 5000L);
                 break;
-            case R.id.msg_reset_status:
+            case R.id.msg_ui_reset_status:
                 //mResultText.setVisibility(View.INVISIBLE);
                 mStatusText.setText(R.string.status_guide_text);
                 break;
-            case R.id.msg_extent_warning:
+            case R.id.msg_ui_extent_warning:
                 setWarning(ID_WARNING_EXTENT, msg.arg1 != 0);
                 break;
-            case R.id.msg_contrast_warning:
+            case R.id.msg_ui_contrast_warning:
                 setWarning(ID_WARNING_CONTRAST, msg.arg1 != 0);
                 break;
-            case R.id.msg_focus_warning:
+            case R.id.msg_ui_focus_warning:
                 setWarning(ID_WARNING_FOCUS, msg.arg1 != 0);
                 break;
-            case R.id.msg_web_search:
+            case R.id.msg_ui_web_search:
                 Intent webSearchIntent = new Intent(Intent.ACTION_WEB_SEARCH);
                 webSearchIntent.putExtra(SearchManager.QUERY, (CharSequence)msg.obj);
                 startActivity(webSearchIntent);
                 finish();
                 break;
-            case R.id.msg_wikipedia:
+            case R.id.msg_ui_wikipedia:
                 Uri wikipediaUrl = Uri.parse("http://en.m.wikipedia.org/wiki?search=" + (CharSequence)msg.obj);
                 Intent wikipediaIntent = new Intent(Intent.ACTION_VIEW, wikipediaUrl);
                 startActivity(wikipediaIntent);
                 finish();
                 break;
-            case R.id.msg_clipboard:
+            case R.id.msg_ui_clipboard:
                 mClipboardManager.setText((CharSequence)msg.obj);
                 finish();
                 break;
@@ -660,93 +652,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 super.handleMessage(msg);
             }
         }
-    };
-    
-    private static final float TARGET_HEIGHT_FRACTION = 0.033f;
-    private static final float TARGET_WIDTH_FRACTION = 0.021f;
-        
-    private Rect makeTargetRect () {
-        int halfWidth = (int)(TARGET_WIDTH_FRACTION * mPreviewWidth / 2.0f);
-        int halfHeight = (int)(TARGET_HEIGHT_FRACTION * mPreviewHeight / 2.0f);
-        int centerX = mPreviewHeight / 2;
-        int centerY = mPreviewWidth / 2;
-        return new Rect(centerY - halfWidth, centerX - halfHeight, 
-                    centerY + halfWidth, centerX + halfHeight);
-    }
-    
-    // Values should correspond to OCRPreferences.PREF_DILATE_RADIUS_* indices
-    private static final SimpleStructuringElement[] sHStrel = {
-        SimpleStructuringElement.makeHorizontal(1), 
-        SimpleStructuringElement.makeHorizontal(2),
-        SimpleStructuringElement.makeHorizontal(3) };
-    private static final SimpleStructuringElement[] sVStrel = {
-        SimpleStructuringElement.makeVertical(1),
-        SimpleStructuringElement.makeVertical(2),
-        SimpleStructuringElement.makeVertical(3) };
-    
-    private final GrayImage findWordExtent (GrayImage img, Rect ext) {        
-        // Contrast stretch
-        int imgMin = img.min(), imgMax = img.max();
-        Log.d(TAG, "Image min = " + imgMin + ", max = " + imgMax);
-        GrayImage resultImg = img.contrastStretch((byte)imgMin, (byte)imgMax); // Temporarily store stretched image here
-
-        // XXX - Refactor code, this shouldn't be here?
-        boolean contrastWarningActive = 
-            (imgMax - imgMin) <= CONTRAST_WARNING_RANGE;
-        Log.d(TAG, "Contrast range = " + (imgMax - imgMin));
-        Message warningMsg = mHandler.obtainMessage(R.id.msg_contrast_warning, 
-                contrastWarningActive ? 1 : 0, -1);
-        mHandler.sendMessage(warningMsg);
-        
-        // Adaptive threshold
-        float imgMean = resultImg.mean();
-        Log.d(TAG, "Stretched image mean = " + imgMean);
-        byte hi, lo;
-        if (imgMean > 127) { // XXX Arbitrary threshold
-            // Most likely dark text on light background
-            hi = (byte)255; 
-            lo = (byte)0;
-        } else {
-            // Most likely light text on dark background
-            hi = (byte)0;
-            lo = (byte)255;
-        }
-        GrayImage tmpImg = resultImg.meanFilter(10);  // Temporarily store local means here
-        int threshOffset = (int)(0.33 * Math.sqrt(resultImg.variance()));  // 0.33 pulled out of my butt
-        resultImg.adaptiveThreshold(hi, lo, threshOffset, tmpImg, resultImg);
-
-        // Dilate; it's grayscale, so we should use erosion instead
-        resultImg.erode(sHStrel[mDilateRadius], tmpImg);
-        GrayImage binImg = tmpImg.erode(sVStrel[mDilateRadius]);
-
-        // Find word extents
-        int left = ext.left, right = ext.right, top = ext.top, bottom = ext.bottom;
-        int imgWidth = img.getWidth(), imgHeight = img.getHeight();
-        boolean extended;
-        do {
-            extended = false;
-            
-            if ((top - 1 >= 0) && binImg.min(left, top - 1, right, top) == 0) {
-                --top;
-                extended = true;
-            }
-            if ((bottom + 1 < imgHeight) && binImg.min(left, bottom, right, bottom + 1) == 0) {
-                ++bottom;
-                extended = true;
-            }
-            if ((left - 1 >= 0) && binImg.min(left - 1, top, left, bottom) == 0) {
-                --left;
-                extended = true;
-            }
-            if ((right + 1 < imgWidth) && binImg.min(right, top, right + 1, bottom) == 0) {
-                ++right;
-                extended = true;
-            }
-        } while (extended);
-        ext.set(left, top, right, bottom);            
-        
-        return resultImg;
-    }
+    };    
 
     /**
      * Utility function to do simple linear search over an array of Objects.
@@ -764,6 +670,5 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         }
         return -1;
     }
-
 
 }
