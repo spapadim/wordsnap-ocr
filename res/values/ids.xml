@@ -25,6 +25,8 @@
 	<item type="id" name="msg_camera_auto_focus" />
 	<item type="id" name="msg_camera_preview_frame" />
 
+    <item type="id" name="msg_request_delayed_capture" />
+
 	<item type="id" name="msg_ui_word_bitmap" />
 	<item type="id" name="msg_ui_ocr_success" />
 	<item type="id" name="msg_ui_ocr_fail" />

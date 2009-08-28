@@ -67,6 +67,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     
     private static final int TOUCH_BORDER = 20;  // How many pixels to ignore around edges
     private static final long AUTOFOCUS_MAX_WAIT_TIME = 2000L;  // How long to wait for touch-triggered AF to succeed
+    private static final long CONTINUOUS_INTERVAL_TIME = 300L;  // How long to wait between image capture requests in continuous mode
+    private static final int AUTOFOCUS_COUNTDOWN_INIT = 5;  // How many times to do capture before issuing a new autofocus request
     
     private static final int MENU_SETTINGS_ID = Menu.FIRST;
     private static final int MENU_ABOUT_ID = Menu.FIRST + 1;
@@ -77,9 +79,13 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private Camera mCamera;
     private boolean mCameraPreviewing;
 
+    // XXX fix misnomers
     private boolean mAutoFocusInProgress;
     private boolean mPreviewCaptureInProgress;
     private boolean mProcessingInProgress;
+
+    private int mAutoFocusCountDown;
+    private boolean mUserTriggeredOCR;
 
     private static final int AUTOFOCUS_UNKNOWN = 0;
     private static final int AUTOFOCUS_SUCCESS = 1;
@@ -113,9 +119,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private boolean mEnableDump;
     
     private boolean mEditBefore;
-    
-    private int mDilateRadius;
-    
+        
     private OCRThread mOCRThread; // FIXME initialize!!!!
    
     @Override
@@ -146,16 +150,26 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                         x < mPreviewWidth - TOUCH_BORDER &&
                         y < mPreviewHeight - TOUCH_BORDER) {
                     long timeSinceDown = event.getEventTime() - event.getDownTime();
-                    if (mAutoFocusInProgress || mProcessingInProgress) {
-                        return false;
-                    }
-                    if (mAutoFocusStatus == AUTOFOCUS_SUCCESS || timeSinceDown > AUTOFOCUS_MAX_WAIT_TIME) {
-                        mButtonGroup.setVisibility(View.GONE);
-                        requestPreviewFrame();
+                    if (mContinuousMode) {
+                        // FIXME !!!!!!!!!! this logic is a f***ing mess!!
+                        if (mResultText.getVisibility() == View.VISIBLE) {
+                            requestAutoFocus();
+                        } else {
+                            mUserTriggeredOCR = true;
+                        }
+                        return true;
                     } else {
-                        requestAutoFocus();
+                        if (mAutoFocusInProgress || mPreviewCaptureInProgress || mProcessingInProgress) {
+                            return false;
+                        }
+                        if (mAutoFocusStatus == AUTOFOCUS_SUCCESS || timeSinceDown > AUTOFOCUS_MAX_WAIT_TIME) {
+                            mButtonGroup.setVisibility(View.GONE);
+                            requestPreviewFrame();
+                        } else {
+                            requestAutoFocus();
+                        }
+                        return true;
                     }
-                    return true;
                 }
                 return false;
             }
@@ -241,7 +255,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 getString(R.string.pref_dilate_radius_default));
         mOCRThread.setPreferences(enableDump, dilateRadius);
         
-        mContinuousMode = preferences.getBoolean(OCRPreferences.PREF_CONTINUOUS_MODE, false);
+        mContinuousMode = preferences.getBoolean(OCRPreferences.PREF_CONTINUOUS_MODE, true);
 
         mEditBefore = preferences.getBoolean(OCRPreferences.PREF_EDIT_BEFORE, false);
         mAlertModes[ID_WARNING_FOCUS] = getStringListPreference(preferences, 
@@ -275,7 +289,9 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         if (!mCameraPreviewing) {
             mCamera.startPreview();
             mCameraPreviewing = true;
-            //requestAutoFocus();  // Do one autofocus
+            if (mContinuousMode) {
+                requestAutoFocus();  // Trigger continuous capture
+            }
         }
     }
     
@@ -295,7 +311,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     }
     
     private void requestAutoFocus () {
-        if (mAutoFocusInProgress) {
+        if (mAutoFocusInProgress || mPreviewCaptureInProgress) {
             return;
         }
         mAutoFocusStatus = AUTOFOCUS_UNKNOWN;
@@ -312,7 +328,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     }
     
     private void requestPreviewFrame () {
-        if (mPreviewCaptureInProgress) {
+        if (mAutoFocusInProgress || mPreviewCaptureInProgress) {
             return;
         }
         mPreviewCaptureInProgress = true;
@@ -330,6 +346,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mAutoFocusInProgress = false;
         mPreviewCaptureInProgress = false;
         mProcessingInProgress = false;
+        mUserTriggeredOCR = false;
+        mAutoFocusCountDown = AUTOFOCUS_COUNTDOWN_INIT;
     }
     
     private void startOCRThread () {
@@ -345,6 +363,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 mOCRThread.join();
             } catch (InterruptedException ie) { }
             mOCRThread = null;
+            // Don't send any messages that will cause a NullPointerException
+            mHandler.removeMessages(R.id.msg_camera_preview_frame);
         }
     }
     
@@ -393,7 +413,11 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             return true;
         } else if (keyCode == KeyEvent.KEYCODE_CAMERA) {
             if (event.getRepeatCount() == 0) {
-                requestPreviewFrame();
+                if (mContinuousMode) {
+                    mUserTriggeredOCR = true;
+                } else {
+                    requestPreviewFrame();
+                }
             }
             return true;
         } else {
@@ -415,8 +439,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     }
 
     public void surfaceCreated(SurfaceHolder holder) {
-        // The Surface has been created, acquire the camera and tell it where
-        // to draw.
+        // The Surface has been created, acquire the camera 
+        // and tell it where to draw.
         mCamera = Camera.open();
         try {
            mCamera.setPreviewDisplay(holder);
@@ -425,7 +449,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
             Log.e(TAG, "Camera preview failed", e);
             mCamera.release();
             mCamera = null;
-            // TODO: add more exception handling logic here
+            // TODO add more exception handling logic here
         }
         mHasSurface = true;
     }
@@ -506,6 +530,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 break;
             }
         }
+        Log.d(TAG, "Set network alert level to " + mNetworkAlertLevel);
     }
     
     private final BroadcastReceiver mConnectivityReceiver = new BroadcastReceiver () {
@@ -520,6 +545,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
     private final Handler mHandler = new Handler () {
         @Override
         public void handleMessage(Message msg) {
+            boolean continuousMode = mContinuousMode;
             switch (msg.what) {
             case R.id.msg_camera_auto_focus:
                 mAutoFocusStatus = msg.arg1;
@@ -531,22 +557,21 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 Message warningMsg = mHandler.obtainMessage(R.id.msg_ui_focus_warning,
                         focusWarningActive ? 1 : 0, -1);
                 mHandler.sendMessage(warningMsg);
+                if (continuousMode) {
+                    requestPreviewFrame();
+                }
                 break;
             case R.id.msg_camera_preview_frame:
-                final byte[] yuv = (byte[])msg.obj;
+                mProcessingInProgress = true;
                 Handler ocrHandler = mOCRThread.getHandler();
                 Message preprocessMsg = ocrHandler.obtainMessage(R.id.msg_ocr_detect_word, mPreviewWidth, mPreviewHeight, msg.obj);
                 ocrHandler.sendMessage(preprocessMsg);
-                final Thread preprocessThread = new Thread() {
-                    @Override
-                    public void run() {
-                    }
-                };
                 mButtonGroup.setVisibility(View.GONE);
                 mResultText.setVisibility(View.INVISIBLE);
-                mStatusText.setText(R.string.status_preprocessing_text);
-                mProcessingInProgress = true;
-                preprocessThread.start();
+                //mStatusText.setText(R.string.status_preprocessing_text);
+                break;
+            case R.id.msg_request_delayed_capture:
+                requestPreviewFrame();
                 break;
             case R.id.msg_ui_word_bitmap:
                 mPreviewCaptureInProgress = false;
@@ -558,18 +583,26 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                     mGuideView.setExtentRect(wordExt);
                 }
                 
+                if (continuousMode && !mUserTriggeredOCR) {
+                    if (--mAutoFocusCountDown < 0) {
+                        mAutoFocusCountDown = AUTOFOCUS_COUNTDOWN_INIT;
+                        requestAutoFocus();
+                    } else {
+                        mHandler.sendEmptyMessageDelayed(R.id.msg_request_delayed_capture, CONTINUOUS_INTERVAL_TIME);
+                    }
+                    break; 
+                }
+                mUserTriggeredOCR = false;  // for the next time around
+                
                 int networkAlertLevel = mNetworkAlertLevel;
                 int[] alertModes = mAlertModes;
                 Log.d(TAG, "network alert level = " + networkAlertLevel);
-                Log.d(TAG, "extent alert mode = " + alertModes[ID_WARNING_EXTENT]);
-                Log.d(TAG, "extent alert active = " + getWarning(ID_WARNING_EXTENT));
                 String alertMessage = null;
-                if (alertModes[ID_WARNING_EXTENT] <= networkAlertLevel && getWarning(ID_WARNING_EXTENT)) {
+                if (alertModes[ID_WARNING_EXTENT] >= networkAlertLevel && getWarning(ID_WARNING_EXTENT)) {
                     alertMessage = getString(R.string.extent_warning_alert_message);
-                    Log.d(TAG, "Set alert message to: " + alertMessage);
-                } else if (alertModes[ID_WARNING_CONTRAST] <= networkAlertLevel && getWarning(ID_WARNING_CONTRAST)) {
+                } else if (alertModes[ID_WARNING_CONTRAST] >= networkAlertLevel && getWarning(ID_WARNING_CONTRAST)) {
                     alertMessage = getString(R.string.contrast_warning_alert_message);
-                } else if (alertModes[ID_WARNING_FOCUS] <= networkAlertLevel && getWarning(ID_WARNING_FOCUS)) {
+                } else if (alertModes[ID_WARNING_FOCUS] >= networkAlertLevel && getWarning(ID_WARNING_FOCUS)) {
                     alertMessage = getString(R.string.focus_warning_alert_message);
                 }
                 if (alertMessage != null) {

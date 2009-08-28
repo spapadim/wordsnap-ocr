@@ -25,6 +25,10 @@
     </PreferenceCategory>
     
     <PreferenceCategory android:title="@string/pref_ui_category">
+        <CheckBoxPreference android:key="continuous_mode"
+           android:title="@string/pref_continuous_mode"
+           android:summary="@string/pref_continuous_mode_summary"
+           android:defaultValue="true" />
         <CheckBoxPreference android:key="edit_before"
             android:title="@string/pref_edit_before"
             android:summary="@string/pref_edit_before_summary"
@@ -50,10 +54,6 @@
     </PreferenceCategory>
 	
 	<PreferenceCategory android:title="@string/pref_advanced_category">
-	    <CheckBoxPreference android:key="continuous_mode"
-	       android:title="@string/pref_continuous_mode"
-	       android:summary="@string/pref_continuous_mode_summary"
-	       android:defaultValue="false" />
 		<CheckBoxPreference android:key="enable_debug_dump" 
         	android:title="@string/pref_debug_dump"
 			android:summary="@string/pref_debug_dump_summary"

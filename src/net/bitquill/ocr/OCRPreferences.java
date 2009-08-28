@@ -43,12 +43,12 @@ implements Preference.OnPreferenceChangeListener, Preference.OnPreferenceClickLi
 
     // XXX - is there a better way to avoid duplication of strings types in resource file??
     // Values must match pref_alert_on_warning_* string arrays in resources.
-    public static final String[] PREF_ALERT_ON_WARNING_VALUES = { "always", "edge", "3g", "never" };
+    public static final String[] PREF_ALERT_ON_WARNING_VALUES = { "never", "edge", "3g", "always" };
     // Order is important! Condition to show alert is: alertMode <= networkAlertLevel (both represented using these values)
-    public static final int PREF_ALERT_ALWAYS = 0;
+    public static final int PREF_ALERT_NEVER = 0;
     public static final int PREF_ALERT_EDGE = 1;
     public static final int PREF_ALERT_3G = 2;
-    public static final int PREF_ALERT_NEVER = 3;
+    public static final int PREF_ALERT_ALWAYS = 3;
     // Values must match string array resource.
     public static final String[] PREF_DILATE_RADIUS_VALUES = { "small", "medium", "large" };
     public static final int PREF_DILATE_RADIUS_SMALL = 0;
