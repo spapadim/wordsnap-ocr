@@ -24,9 +24,12 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 
 public class WordGuideView extends View {
+    
+    private static final String TAG = WordGuideView.class.getSimpleName();
     
     private static final float OUTER_FRACTION = 0.125f;  //  1/8th
     private static final float INNER_FRACTION = 0.083f;  //  1/12th
@@ -61,8 +64,8 @@ public class WordGuideView extends View {
         Rect invalidateRect = mExtentRect;
         if (invalidateRect != null && extentRect != null) {
             invalidateRect.union(extentRect); // old rect will be discarded anyway
-        } else {
-            invalidateRect = extentRect == null ? null : new Rect(extentRect);
+        } else if (extentRect != null) {
+            invalidateRect = new Rect(extentRect);
         }
         mExtentRect = extentRect;
         if (invalidateRect != null) {
@@ -87,16 +90,16 @@ public class WordGuideView extends View {
         // Draw the exterior (i.e. outside the framing guides) darkened
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(mDarkMaskColor);
-        rect.set(0, 0, width, maskHeight);
+        rect.set(0, 0, width, maskHeight - 1);
         canvas.drawRect(rect, paint);
-        rect.set(0, height - maskHeight, width, height);
+        rect.set(0, height - maskHeight + 1, width, height);
         canvas.drawRect(rect, paint);
         
         // Draw lighter mask
         paint.setColor(mLightMaskColor);
         rect.set(0, maskHeight, maskWidth - 1, height - maskHeight);
         canvas.drawRect(rect, paint);
-        rect.set(width - maskWidth, maskHeight, width, height - maskHeight);
+        rect.set(width - maskWidth + 1, maskHeight, width, height - maskHeight);
         canvas.drawRect(rect, paint);
 
         // Draw outer and inner viewfinder rectangles
@@ -105,7 +108,9 @@ public class WordGuideView extends View {
         paint.setStrokeWidth(2);
         rect.set(maskWidth, maskHeight, width - maskWidth, height - maskHeight);
         canvas.drawRect(rect, paint);
-        rect.set(maskWidth, maskHeight + guideGap, width - maskWidth, height - maskHeight - guideGap);
+        rect.set(maskWidth + 1, maskHeight + guideGap, width - maskWidth - 1, maskHeight + guideGap);
+        canvas.drawRect(rect, paint);
+        rect.set(maskWidth + 1, height - maskHeight - guideGap, width - maskWidth - 1, height - maskHeight - guideGap);
         canvas.drawRect(rect, paint);
         
         // Draw cross-hairs
