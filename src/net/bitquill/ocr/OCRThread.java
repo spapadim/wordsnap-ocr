@@ -87,11 +87,11 @@ public class OCRThread extends HandlerThread {
         initImageBuffers(imageWidth, imageHeight);
 
         GrayImage img = new GrayImage(yuv, imageWidth, imageHeight);
-        long startTime = System.currentTimeMillis();
+        //long startTime = System.currentTimeMillis();
         Rect ext = makeTargetRect(imageWidth, imageHeight);
         findWordExtent(img, ext);
-        Log.d(TAG, "Find word extent in " + (System.currentTimeMillis() - startTime) + " msec");
-        Log.d(TAG, "Extent is " + ext.top + "," + ext.left + "," + ext.bottom + "," + ext.right);
+        //Log.d(TAG, "Find word extent in " + (System.currentTimeMillis() - startTime) + " msec");
+        //Log.d(TAG, "Extent is " + ext.top + "," + ext.left + "," + ext.bottom + "," + ext.right);
 
         boolean extentWarningActive = 
             ext.width() >= imageWidth * EXTENT_WARNING_WIDTH_FRACTION || ext.height() >= imageHeight * EXTENT_WARNING_HEIGHT_FRACTION;
@@ -104,9 +104,9 @@ public class OCRThread extends HandlerThread {
             FileDumpUtil.dump("bin", mResultImg);
         }
 
-        startTime = System.currentTimeMillis();
+        //startTime = System.currentTimeMillis();
         Bitmap textBitmap = mResultImg.asBitmap(ext);
-        Log.d(TAG, "Converted to Bitmap in " + (System.currentTimeMillis() - startTime) + " msec");
+        //Log.d(TAG, "Converted to Bitmap in " + (System.currentTimeMillis() - startTime) + " msec");
         
         if (mEnableDump) {
             FileDumpUtil.dump("word", textBitmap);
@@ -212,7 +212,8 @@ public class OCRThread extends HandlerThread {
                 extended = true;
             }
         } while (extended);
-        ext.set(left, top, right, bottom);            
+        ext.set(Math.max(0, left - 2), Math.max(0, top - 2), 
+                Math.min(imgWidth, right + 2), Math.min(imgHeight, bottom + 2));
     }
 
 }

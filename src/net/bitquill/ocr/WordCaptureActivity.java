@@ -221,12 +221,13 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         } else {
             LayoutInflater inflater = LayoutInflater.from(this);
             final EditText dialogEditView = (EditText)inflater.inflate(R.layout.edit_dialog_view, null);
+            Log.d(TAG, "Inflated edit dialog");
             AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.edit_text_dialog_title)
                 .setPositiveButton(R.string.ok_button, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        Message msg = mHandler.obtainMessage(msgId, dialogEditView.getText());
+                        Message msg = mHandler.obtainMessage(msgId, dialogEditView.getText().toString()); // need to call toString, Editable is reset after activity finishes
                         mHandler.sendMessage(msg);
                     }
                     
@@ -319,7 +320,6 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         mCamera.autoFocus(new Camera.AutoFocusCallback() { 
             @Override
             public void onAutoFocus(boolean success, Camera camera) {
-                Log.d(TAG, "onAutoFocus success = " + success);
                 Message msg = mHandler.obtainMessage(R.id.msg_camera_auto_focus, 
                         success ? AUTOFOCUS_SUCCESS : AUTOFOCUS_FAILURE, -1);
                 mHandler.sendMessage(msg);
@@ -408,6 +408,8 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         if (keyCode == KeyEvent.KEYCODE_FOCUS) {
             if (event.getRepeatCount() == 0) {
                 mButtonGroup.setVisibility(View.GONE);
+                mHandler.removeMessages(R.id.msg_request_delayed_capture);
+                mAutoFocusCountDown = AUTOFOCUS_COUNTDOWN_INIT;
                 requestAutoFocus();
             }
             return true;
@@ -538,7 +540,6 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "Connectivity action broadcast");
             updateNetworkAlertLevel();
-            Log.d(TAG, "Updated network alert level to " + mNetworkAlertLevel);
         }
     };
     
@@ -571,7 +572,9 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 //mStatusText.setText(R.string.status_preprocessing_text);
                 break;
             case R.id.msg_request_delayed_capture:
-                requestPreviewFrame();
+                if (mOCRThread != null) {
+                    requestPreviewFrame();
+                }
                 break;
             case R.id.msg_ui_word_bitmap:
                 mPreviewCaptureInProgress = false;
@@ -579,12 +582,10 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 
                 final Bundle bundle = msg.getData();
                 final Rect wordExt = bundle.getParcelable(OCRThread.WORD_RECT);
-                if (!getWarning(ID_WARNING_EXTENT)) {
-                    mGuideView.setExtentRect(wordExt);
-                }
+                mGuideView.setExtentRect(getWarning(ID_WARNING_EXTENT) ? null : wordExt);
                 
                 if (continuousMode && !mUserTriggeredOCR) {
-                    if (--mAutoFocusCountDown < 0) {
+                    if (--mAutoFocusCountDown < 0 || mAutoFocusStatus != AUTOFOCUS_SUCCESS) {
                         mAutoFocusCountDown = AUTOFOCUS_COUNTDOWN_INIT;
                         requestAutoFocus();
                     } else {
@@ -596,7 +597,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 
                 int networkAlertLevel = mNetworkAlertLevel;
                 int[] alertModes = mAlertModes;
-                Log.d(TAG, "network alert level = " + networkAlertLevel);
+                //Log.d(TAG, "network alert level = " + networkAlertLevel);
                 String alertMessage = null;
                 if (alertModes[ID_WARNING_EXTENT] >= networkAlertLevel && getWarning(ID_WARNING_EXTENT)) {
                     alertMessage = getString(R.string.extent_warning_alert_message);
@@ -666,6 +667,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 setWarning(ID_WARNING_FOCUS, msg.arg1 != 0);
                 break;
             case R.id.msg_ui_web_search:
+                Log.d(TAG, "msg_ui_web_search obj=" + (CharSequence)msg.obj);
                 Intent webSearchIntent = new Intent(Intent.ACTION_WEB_SEARCH);
                 webSearchIntent.putExtra(SearchManager.QUERY, (CharSequence)msg.obj);
                 startActivity(webSearchIntent);
