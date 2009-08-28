@@ -62,10 +62,11 @@ public class WordGuideView extends View {
         if (invalidateRect != null && extentRect != null) {
             invalidateRect.union(extentRect); // old rect will be discarded anyway
         } else {
-            invalidateRect = extentRect;
+            invalidateRect = extentRect == null ? null : new Rect(extentRect);
         }
         mExtentRect = extentRect;
         if (invalidateRect != null) {
+            invalidateRect.inset(-2, -2);
             invalidate(invalidateRect);
         }
     }
@@ -118,7 +119,7 @@ public class WordGuideView extends View {
         if (mExtentRect != null) {
             paint.setColor(mExtentColor);
             //paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(2);
+            paint.setStrokeWidth(3);
             canvas.drawRect(mExtentRect, paint);
         }
     }
