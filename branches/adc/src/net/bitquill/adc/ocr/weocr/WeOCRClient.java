@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with WordSnap.  If not, see <http://www.gnu.org/licenses/>.
  */
-package net.bitquill.ocr.weocr;
+package net.bitquill.adc.ocr.weocr;
 
 import java.io.BufferedReader;
 import java.io.IOException;

@@ -16,12 +16,12 @@
  * You should have received a copy of the GNU General Public License
  * along with WordSnap.  If not, see <http://www.gnu.org/licenses/>.
  */
-package net.bitquill.ocr.weocr;
+package net.bitquill.adc.ocr.weocr;
 
 import java.io.IOException;
 import java.util.ArrayList;
 
-import net.bitquill.ocr.R;
+import net.bitquill.adc.ocr.R;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;

@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with WordSnap.  If not, see <http://www.gnu.org/licenses/>.
  */
-package net.bitquill.ocr.image;
+package net.bitquill.adc.ocr.image;
 
 import android.graphics.Bitmap;
 import android.graphics.Rect;
@@ -29,9 +29,9 @@ public class GrayImage extends GrayMatrix {
     
     static {
         try {
-            System.loadLibrary("imageproc");
+            System.loadLibrary("imageproc-adc");
         } catch (UnsatisfiedLinkError ule) {
-            Log.e(TAG, "Could not load native library imageproc", ule);
+            Log.e(TAG, "Could not load native library imageproc-adc", ule);
         }   
     }
     
