@@ -22,7 +22,7 @@
 
 	<SurfaceView android:layout_width="fill_parent" android:id="@+id/capture_surface"
 		android:layout_height="fill_parent" />
-	<net.bitquill.ocr.WordGuideView android:id="@+id/guide_view"
+	<net.bitquill.adc.ocr.WordGuideView android:id="@+id/guide_view"
 		android:layout_width="fill_parent" android:layout_height="fill_parent" />
 	<TextView android:text="@string/status_guide_text" android:id="@+id/status_text"
 		android:layout_height="wrap_content" android:layout_gravity="bottom|center"
