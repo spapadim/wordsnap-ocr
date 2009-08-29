@@ -19,9 +19,9 @@
  -->
 <resources>
 
-	<string name="app_name">WordSnap OCR</string>
+	<string name="app_name">WordSnap OCR (ADC branch)</string>
 	<string name="app_description">Use camera to recognize words</string>
-	<string name="activity_word_capture">WordSnap</string>
+	<string name="activity_word_capture">WordSnap ADC</string>
 	
 	<string name="about_url">http://www.bitquill.net/trac/wiki/Android/OCR</string>
 
