@@ -149,6 +149,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                     if (mContinuousMode) {
                         // FIXME !!!!!!!!!! this logic is a f***ing mess!!
                         if (mResultText.getVisibility() == View.VISIBLE) {
+                            mStatusText.setText(R.string.status_guide_text);
                             requestAutoFocus();
                         } else {
                             mUserTriggeredOCR = true;
@@ -217,7 +218,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
         } else {
             LayoutInflater inflater = LayoutInflater.from(this);
             final EditText dialogEditView = (EditText)inflater.inflate(R.layout.edit_dialog_view, null);
-            Log.d(TAG, "Inflated edit dialog");
+            //Log.d(TAG, "Inflated edit dialog");
             AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.edit_text_dialog_title)
                 .setPositiveButton(R.string.ok_button, new DialogInterface.OnClickListener() {
@@ -406,6 +407,7 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 mButtonGroup.setVisibility(View.GONE);
                 mHandler.removeMessages(R.id.msg_request_delayed_capture);
                 mAutoFocusCountDown = AUTOFOCUS_COUNTDOWN_INIT;
+                mStatusText.setText(R.string.status_guide_text);
                 requestAutoFocus();
             }
             return true;
@@ -578,16 +580,20 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 
                 final Bundle bundle = msg.getData();
                 final Rect wordExt = bundle.getParcelable(OCRThread.WORD_RECT);
-                mGuideView.setExtentRect(getWarning(ID_WARNING_EXTENT) ? null : wordExt);
+                final boolean isExtentWarningOn = getWarning(ID_WARNING_EXTENT);
+                mGuideView.setExtentRect(isExtentWarningOn ? null : wordExt);
                 
-                if (continuousMode && !mUserTriggeredOCR) {
-                    if (--mAutoFocusCountDown < 0 || mAutoFocusStatus != AUTOFOCUS_SUCCESS) {
-                        mAutoFocusCountDown = AUTOFOCUS_COUNTDOWN_INIT;
-                        requestAutoFocus();
-                    } else {
-                        mHandler.sendEmptyMessageDelayed(R.id.msg_request_delayed_capture, CONTINUOUS_INTERVAL_TIME);
+                if (continuousMode) {
+                    if (!mUserTriggeredOCR || isExtentWarningOn) {
+                        mUserTriggeredOCR = false; // extent warning was on, clear
+                        if (--mAutoFocusCountDown < 0 || mAutoFocusStatus != AUTOFOCUS_SUCCESS) {
+                            mAutoFocusCountDown = AUTOFOCUS_COUNTDOWN_INIT;
+                            requestAutoFocus();
+                        } else {
+                            mHandler.sendEmptyMessageDelayed(R.id.msg_request_delayed_capture, CONTINUOUS_INTERVAL_TIME);
+                        }
+                        break; 
                     }
-                    break; 
                 }
                 mUserTriggeredOCR = false;  // for the next time around
                 
@@ -651,7 +657,11 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 break;
             case R.id.msg_ui_reset_status:
                 //mResultText.setVisibility(View.INVISIBLE);
-                mStatusText.setText(R.string.status_guide_text);
+                if (continuousMode) {
+                    mStatusText.setText(R.string.status_restart_text);
+                } else {
+                    mStatusText.setText(R.string.status_guide_text);
+                }
                 break;
             case R.id.msg_ui_extent_warning:
                 setWarning(ID_WARNING_EXTENT, msg.arg1 != 0);
@@ -663,7 +673,6 @@ public class WordCaptureActivity extends Activity implements SurfaceHolder.Callb
                 setWarning(ID_WARNING_FOCUS, msg.arg1 != 0);
                 break;
             case R.id.msg_ui_web_search:
-                Log.d(TAG, "msg_ui_web_search obj=" + (CharSequence)msg.obj);
                 Intent webSearchIntent = new Intent(Intent.ACTION_WEB_SEARCH);
                 webSearchIntent.putExtra(SearchManager.QUERY, (CharSequence)msg.obj);
                 startActivity(webSearchIntent);

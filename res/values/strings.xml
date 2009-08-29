@@ -19,15 +19,16 @@
  -->
 <resources>
 
-	<string name="app_name">WordSnap OCR (ADC branch)</string>
+	<string name="app_name">WordSnap OCR (ADC)</string>
 	<string name="app_description">Use camera to recognize words</string>
 	<string name="activity_word_capture">WordSnap ADC</string>
 	
 	<string name="about_url">http://www.bitquill.net/trac/wiki/Android/OCR</string>
 
 	<string name="status_guide_text">Place word inside finder and tap screen</string>
+    <string name="status_restart_text">Tap screen to restart scanning</string>
     <string name="status_preprocessing_text">Extracting word from image</string>
-    <string name="status_preprocessing_error_text">Failed to find word; please try again</string>
+    <string name="status_preprocessing_error_text">Network error; tap screen to try again</string>
     <string name="status_processing_text">Contacting server for recognition</string>
     <string name="status_processing_error_text">Server error; please try again</string>
     <string name="status_finished_text">Recognition complete</string>
