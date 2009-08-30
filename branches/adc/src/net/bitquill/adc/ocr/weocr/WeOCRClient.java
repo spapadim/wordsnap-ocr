@@ -27,6 +27,7 @@ import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HTTP;
@@ -36,6 +37,8 @@ import android.util.Log;
 
 public final class WeOCRClient {
     private static final String TAG = WeOCRClient.class.getSimpleName();
+    
+    private static final int HTTP_TIMEOUT = 8000; // in msec
 
     private static final String USER_AGENT_STRING = "net.bitquill.ocr/0.1" +
     " (Linux; U; Android " + android.os.Build.VERSION.RELEASE + ")" +
@@ -51,6 +54,7 @@ public final class WeOCRClient {
         HttpProtocolParams.setContentCharset(params, HTTP.DEFAULT_CONTENT_CHARSET);
         HttpProtocolParams.setUseExpectContinue(params, true);
         HttpProtocolParams.setUserAgent(params, USER_AGENT_STRING);
+        HttpConnectionParams.setConnectionTimeout(params, HTTP_TIMEOUT);
         mHttpClient = new DefaultHttpClient(params);
     }
     
